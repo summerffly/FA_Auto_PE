@@ -5,6 +5,7 @@ Markdown 行解析
 """
 
 import re
+from datetime import datetime
 from enum import Enum, auto
 from dataclasses import dataclass
 
@@ -41,7 +42,7 @@ RE_TOTAL = re.compile(r'^## Total$')
 
 # 收支条目
 # `- 50` 猫罐头
-RE_UNIT = re.compile(r'^`([+-])[ ]?(\d+)`[ ]+(.*)$')
+RE_UNIT = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
 # 聚合金额
 # 币安货币 : +80000
 RE_AGGR = re.compile(r'^(?!Total\b)(?!>)(.+) : ([+-])(\d+)$')
@@ -188,28 +189,36 @@ class Line:
         if self.ltype == LineType.UNIT:
             sign = "+" if self.value > 0 else "-"
             return f"`{sign} {abs(self.value)}` {self.content}"
+        
         if self.ltype == LineType.AGGR:
             sign = "+" if self.value > 0 else "-"
             return f"{self.content} : {sign}{abs(self.value)}"
+        
         if self.ltype == LineType.MONTH_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"> {self.content} : {sign}{abs(self.value)}"
+        
         if self.ltype == LineType.TITLE_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"> {sign}{abs(self.value)}"
+        
         if self.ltype == LineType.SUB_TITLE_SUM:
             sign = "+" if self.value > 0 else "-"
             return f">> {sign}{abs(self.value)}"
+        
         if self.ltype == LineType.TOTAL_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"Total : {sign}{abs(self.value)}"
+        
         if self.ltype == LineType.TIMESTAMP:
-            return f"*Update Time : {self.content}*"
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return f"*Update Time : {now}*"
+        
         if self.ltype == LineType.BLANK:
             return ""
         
-        # RAW
         return self.raw
+
 
     # -------- 辅助 -------- #
 

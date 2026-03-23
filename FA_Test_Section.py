@@ -25,12 +25,14 @@ def main():
         print(name)
 
     print()
-    ledger.rebuild_section_summary("life.M02")
-    ledger.rebuild_section_summary("life.M03")
+    #ledger.rebuild_section_summary("life.M02")
+    #ledger.rebuild_section_summary("life.M03")
+    ledger.rebuild_all_summaries()
     print("=== Rebuild Markdown ===")
     print(ledger.to_raw())
 
-    ledger.save("life.M.md")
+    #ledger.save("life.M.md")
+    ledger.save("Test.md")
 
 
 if __name__ == "__main__":

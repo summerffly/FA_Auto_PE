@@ -5,21 +5,20 @@ Ledger.py
 
 from dataclasses import dataclass, field
 from typing import List, Optional
-
 from Line import Line, LineType
-from Section import Section
+from Section import BaseSection, make_section_by_title_line
 
 
 @dataclass
 class Ledger:
     """
     整个文件分为三部分：
-    1. head_lines  - section 前面的内容
+    1. head_lines  - 第一个 section 前面的内容
     2. sections    - 月度 sections
     3. tail_lines  - 最后一个 section 之后的内容
     """
     head_lines: List[Line] = field(default_factory=list)
-    sections: List[Section] = field(default_factory=list)
+    sections: List[BaseSection] = field(default_factory=list)
     tail_lines: List[Line] = field(default_factory=list)
 
     @classmethod
@@ -42,16 +41,25 @@ class Ledger:
 
     @classmethod
     def parse_lines(cls, lines: List[Line]) -> "Ledger":
+        """
+        从 Line 列表解析 Ledger
+
+        规则：
+        - MONTH_TITLE 开启一个新的 Section
+        - Section 类型由标题决定（通过工厂函数）
+        - TIMESTAMP / EOF 视为 tail_lines 起点
+        """
         ledger = cls()
 
-        current_section: Optional[Section] = None
+        current_section: Optional[BaseSection] = None
         seen_section = False
 
         for ln in lines:
-            if ln.ltype == LineType.MONTH_TITLE:
+            if ln.ltype == LineType.MONTH_TITLE or ln.ltype == LineType.SUB_TAG:
                 if current_section is not None:
                     ledger.sections.append(current_section)
-                current_section = Section(title_line=ln)
+
+                current_section = make_section_by_title_line(ln)
                 seen_section = True
                 continue
 
@@ -84,12 +92,15 @@ class Ledger:
         return line.ltype in (LineType.TIMESTAMP, LineType.EOF)
 
     @property
-    def month_sections(self) -> List[Section]:
+    def month_sections(self) -> List[BaseSection]:
+        """
+        所有月度 section
+        """
         return self.sections
 
-    def get_section(self, name: str) -> Optional[Section]:
+    def get_section(self, name: str) -> Optional[BaseSection]:
         """
-        按 section 名称查找，例如 life.M02
+        按 section 名称查找，例如 life.M02 / DGtler.M03
         """
         for sec in self.sections:
             if sec.name == name:
@@ -97,87 +108,100 @@ class Ledger:
         return None
 
     def has_section(self, name: str) -> bool:
+        """
+        判断 section 是否存在
+        """
         return self.get_section(name) is not None
 
-    def add_section(self, section: Section):
+    def add_section(self, section: BaseSection):
+        """
+        追加一个新的 section
+        """
         self.sections.append(section)
 
     def section_names(self) -> List[str]:
+        """
+        返回所有 section 名称
+        """
         return [sec.name for sec in self.sections]
 
     def all_lines(self) -> List[Line]:
+        """
+        返回整个文件的所有行
+        """
         result: List[Line] = []
         result.extend(self.head_lines)
+
         for sec in self.sections:
             result.extend(sec.lines)
+
         result.extend(self.tail_lines)
         return result
 
+    def to_raw_lines(self) -> List[str]:
+        """
+        序列化为 markdown 行列表
+        """
+        return [ln.to_raw() for ln in self.all_lines()]
+
+    def to_raw(self) -> str:
+        """
+        序列化为完整 markdown 文本
+        """
+        return "\n".join(self.to_raw_lines())
+
+    def save(self, filepath: str, encoding: str = "utf-8"):
+        """
+        回写到 markdown 文件
+        """
+        text = self.to_raw()
+        with open(filepath, "w", encoding=encoding) as f:
+            f.write(text)
+            if not text.endswith("\n"):
+                f.write("\n")
+
+    def save_as(self, filepath: str, encoding: str = "utf-8"):
+        """
+        另存为新文件
+        """
+        self.save(filepath, encoding=encoding)
+
+    # -------- summary 重建 / 校验 -------- #
+
     def rebuild_section_summary(self, name: str):
         """
-        重算指定 section 的 summary 并回写
+        重建指定 section 的 summary
         """
         sec = self.get_section(name)
         if sec is None:
             raise ValueError(f"section 不存在: {name}")
 
-        if not hasattr(sec, "rebuild_summary_lines"):
-            raise AttributeError(
-                "Section 缺少 rebuild_summary_lines() 方法，请先在 Section.py 中实现"
-            )
-
-        sec.rebuild_summary_lines()
+        sec.rebuild_summary()
 
     def rebuild_all_summaries(self):
         """
-        重算所有 section 的 summary 并回写
+        重建所有 section 的 summary
         """
         for sec in self.sections:
-            if not hasattr(sec, "rebuild_summary_lines"):
-                raise AttributeError(
-                    "Section 缺少 rebuild_summary_lines() 方法，请先在 Section.py 中实现"
-                )
-            sec.rebuild_summary_lines()
+            sec.rebuild_summary()
 
     def validate_section_summary(self, name: str) -> bool:
         """
-        校验指定 section 当前 summary 是否正确
+        校验指定 section 的 summary 是否正确
         """
         sec = self.get_section(name)
         if sec is None:
             raise ValueError(f"section 不存在: {name}")
 
-        income = sum(ln.value for ln in sec.unit_lines if ln.value > 0)
-        expense = sum(ln.value for ln in sec.unit_lines if ln.value < 0)
-        balance = income + expense
-
-        s_income = sec.find_summary("薪资")
-        s_expense = sec.find_summary("支出")
-        s_balance = sec.find_summary("结余")
-
-        if s_income is None or s_expense is None or s_balance is None:
-            return False
-
-        return (
-            s_income.value == income and
-            s_expense.value == expense and
-            s_balance.value == balance
-        )
+        return sec.validate_summary()
 
     def validate_all_summaries(self) -> bool:
         """
         校验所有 section 的 summary 是否正确
         """
-        for sec in self.sections:
-            if not self.validate_section_summary(sec.name):
-                return False
-        return True
+        return all(sec.validate_summary() for sec in self.sections)
 
-    def to_raw_lines(self) -> List[str]:
-        return [ln.to_raw() for ln in self.all_lines()]
-
-    def to_raw(self) -> str:
-        return "\n".join(self.to_raw_lines())
+    # -------- 调试 -------- #
 
     def dump(self):
         """
@@ -191,22 +215,12 @@ class Ledger:
 
         for i, sec in enumerate(self.sections, 1):
             print(f"[{i}] {sec.name}")
-            print(f"    summaries : {len(sec.summary_lines)}")
-            print(f"    units     : {len(sec.unit_lines)}")
-            print(f"    total_unit: {sec.total_units()}")
-
-    def save(self, filepath: str, encoding: str = "utf-8"):
-        """
-        回写到 markdown 文件
-        """
-        with open(filepath, "w", encoding=encoding) as f:
-            f.write(self.to_raw())
-
-    def save_as(self, filepath: str, encoding: str = "utf-8"):
-        """
-        另存为新文件
-        """
-        self.save(filepath, encoding=encoding)
+            print(f"    class      : {sec.__class__.__name__}")
+            print(f"    summaries  : {len(sec.summary_lines)}")
+            print(f"    body       : {len(sec.body_lines)}")
+            print(f"    units      : {len(sec.unit_lines)}")
+            print(f"    blanks     : {len(sec.blank_lines)}")
+            print(f"    total_unit : {sec.total_units()}")
 
     def __repr__(self):
         return (

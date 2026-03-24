@@ -27,10 +27,12 @@ def _parse(arg: str) -> list[str]:
     except ValueError as e:
         raise ValueError(f"参数解析出错: {e}") from e
 
+
 def _require(parts: list[str], n: int, usage: str):
     """检查参数数量，不足时抛 ValueError。"""
     if len(parts) < n:
         raise ValueError(f"参数不足，用法: {usage}")
+
 
 def _print_section_summary(ledger, sec_name: str):
     sec = ledger.get_section(sec_name)
@@ -51,7 +53,9 @@ def _print_ledger_summary(name: str):
         print(f"  {sec.name:<20} {sign}{total}")
 
 
-# ----- Shell 主类 -------------------- #
+# ======================================== #
+#    Shell 主类
+# ======================================== #
 
 class FAShell(cmd.Cmd):
 
@@ -68,22 +72,20 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
     # ----- 内部辅助 -------------------- #
 
     def _run(self, fn):
-        """统一捕获命令执行异常，避免 Shell 崩溃。"""
         try:
             fn()
         except ValueError as e:
-            print(f"[!] {e}")
+            print(f"{Fore.RED}[!]{Style.RESET_ALL} {e}")
         except KeyError as e:
-            print(f"[!] 找不到账本: {e}")
+            print(f"{Fore.RED}[!]{Style.RESET_ALL} 找不到账本: {e}")
         except Exception as e:
-            print(f"[!] 执行出错: {e}")
+            print(f"{Fore.RED}[!]{Style.RESET_ALL} 执行出错: {e}")
 
     def emptyline(self):
-        """回车空行不重复上一条命令。"""
         pass
 
     def default(self, line):
-        print(f"[!] 未知命令: {line.split()[0]}，输入 help 查看可用命令。")
+        print(f"{Fore.RED}[!]{Style.RESET_ALL} 未知命令: {line.split()[0]}")
 
     # ----- 查看 -------------------- #
 
@@ -194,7 +196,7 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
                 raise ValueError(f"找不到区间: {parts[1]}")
             idx = int(parts[2])
             if not (0 <= idx < len(sec.body_lines)):
-                raise ValueError(f"行号越界，body_lines 共 {len(sec.body_lines)} 行")
+                raise ValueError(f"行号越界 body_lines 共 {len(sec.body_lines)} 行")
             removed = sec.body_lines.pop(idx)
             print(f"  已删除第 {idx} 行: {removed.raw}")
         self._run(run)
@@ -213,7 +215,7 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
                 raise ValueError(f"找不到区间: {sec_name}")
             idx = int(idx_s)
             if not (0 <= idx < len(sec.body_lines)):
-                raise ValueError(f"行号越界，body_lines 共 {len(sec.body_lines)} 行")
+                raise ValueError(f"行号越界 body_lines 共 {len(sec.body_lines)} 行")
             ln = sec.body_lines[idx]
 
             if mode == "val":
@@ -289,12 +291,17 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
     # ----- 测试入口 -------------------- #
 
     def do_test(self, arg):
-        """test <life|dg|dk>  运行内置测试（开发调试用）"""
+        """
+        test <life|dg|dk>
+        运行内置测试
+        """
         def run():
             parts = _parse(arg)
             _require(parts, 1, "test <life|dg|dk>")
             target = parts[0].lower()
-            if target == "life":
+            if target == "sum":
+                engine.sum_test()
+            elif target == "life":
                 engine.life_test()
             elif target == "dg":
                 engine.dgtler_test()
@@ -307,17 +314,16 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
     # ----- 退出 -------------------- #
 
     def do_q(self, _):
-        """q  退出"""
         return self._quit()
 
     def do_quit(self, _):
-        """quit  退出"""
         return self._quit()
 
     def do_exit(self, _):
-        """exit  退出"""
         return self._quit()
 
     def _quit(self):
         print("Bye!")
         return True
+    
+    # ----- END -------------------- #

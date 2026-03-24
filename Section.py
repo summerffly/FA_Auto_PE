@@ -26,6 +26,10 @@ from Line import Line, LineType
 RE_MONTH_NAME = re.compile(r'^## (.+\.M\d{2})$')
 
 
+# ======================================== #
+#    BaseSection
+# ======================================== #
+
 @dataclass
 class BaseSection(ABC):
     """
@@ -209,7 +213,12 @@ class BaseSection(ABC):
         校验当前 summary 是否正确
         """
         raise NotImplementedError
-    
+
+
+# ======================================== #
+#    LifeSection
+# ======================================== #
+
 @dataclass
 class LifeSection(BaseSection):
     """
@@ -289,6 +298,11 @@ class LifeSection(BaseSection):
             f"units={len(self.unit_lines)})"
         )
 
+
+# ======================================== #
+#    MonthSection
+# ======================================== #
+
 @dataclass
 class MonthSection(BaseSection):
     """
@@ -331,6 +345,11 @@ class MonthSection(BaseSection):
             f"body={len(self.body_lines)}, "
             f"units={len(self.unit_lines)})"
         )
+
+
+# ======================================== #
+#    TitleSection
+# ======================================== #
 
 @dataclass
 class TitleSection(BaseSection):
@@ -375,26 +394,22 @@ class TitleSection(BaseSection):
             f"units={len(self.unit_lines)})"
         )
 
-def make_section_by_title_line(title_line: Line) -> BaseSection:
-    """
-    根据标题名决定创建哪种 Section
 
-    当前规则：
-    - life.Mxx    -> LifeSection
-    - DGtler.Mxx  -> MonthSection
-    - DK.Mxx      -> TitleSection
+# ----- MiniSection Factory -------------------- #
 
-    你以后可以继续扩展这里
-    """
+def make_section(title_line: Line) -> BaseSection:
     raw = title_line.raw.strip()
 
+    # Type1
     if raw.startswith("## life."):
         return LifeSection(title_line=title_line)
-
+    
+    # Type2
     if raw.startswith("##") and ".M" in raw:
         return MonthSection(title_line=title_line)
-
+    
+    # Type3
     if raw.startswith("###"):
         return TitleSection(title_line=title_line)
-
+    
     raise ValueError(f"未知 section 类型，无法创建 Section: {raw}")

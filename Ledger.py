@@ -6,20 +6,22 @@ Ledger.py
 from dataclasses import dataclass, field
 from typing import List, Optional
 from Line import Line, LineType
-from Section import BaseSection, make_section_by_title_line
+from Section import BaseSection, make_section
+from Block import BaseBlock, TailBlock, make_block, make_tail_block
 
 
 @dataclass
 class Ledger:
     """
     整个文件分为三部分：
-    1. head_lines  - 第一个 section 前面的内容
-    2. sections    - 月度 sections
+    1. header  - 第一个 section 前面的内容
+    2. segments    - 月度 segments
     3. tail_lines  - 最后一个 section 之后的内容
     """
-    head_lines: List[Line] = field(default_factory=list)
-    sections: List[BaseSection] = field(default_factory=list)
-    tail_lines: List[Line] = field(default_factory=list)
+    header: List[Line] = field(default_factory=list)
+    segments: List[BaseSection] = field(default_factory=list)
+    total: Optional[BaseBlock] = None
+    tail: Optional[TailBlock] = None
 
     @classmethod
     def parse_text(cls, text: str) -> "Ledger":
@@ -38,48 +40,46 @@ class Ledger:
         with open(filepath, "r", encoding=encoding) as f:
             text = f.read()
         return cls.parse_text(text)
-
+    
     @classmethod
     def parse_lines(cls, lines: List[Line]) -> "Ledger":
-        """
-        从 Line 列表解析 Ledger
-
-        规则：
-        - MONTH_TITLE 开启一个新的 Section
-        - Section 类型由标题决定（通过工厂函数）
-        - TIMESTAMP / EOF 视为 tail_lines 起点
-        """
         ledger = cls()
-
         current_section: Optional[BaseSection] = None
         seen_section = False
+        tail_lines: List[Line] = []  # 新增：临时存储tail行
 
         for ln in lines:
             if ln.ltype == LineType.MONTH_TITLE or ln.ltype == LineType.SUB_TAG:
                 if current_section is not None:
-                    ledger.sections.append(current_section)
-
-                current_section = make_section_by_title_line(ln)
+                    ledger.segments.append(current_section)
+                
+                current_section = make_section(ln)
                 seen_section = True
                 continue
-
+            
             if current_section is None:
                 if not seen_section:
-                    ledger.head_lines.append(ln)
+                    ledger.header.append(ln)
                 else:
-                    ledger.tail_lines.append(ln)
+                    # 收集tail行，最后统一创建TailBlock
+                    tail_lines.append(ln)
             else:
                 if cls._is_tail_line(ln):
-                    ledger.sections.append(current_section)
+                    ledger.segments.append(current_section)
                     current_section = None
-                    ledger.tail_lines.append(ln)
+                    tail_lines.append(ln)  # 添加到tail_lines
                 else:
                     current_section.add_line(ln)
-
+        
         if current_section is not None:
-            ledger.sections.append(current_section)
-
+            ledger.segments.append(current_section)
+        
+        # 最后统一创建TailBlock
+        if tail_lines:
+            ledger.tail = make_tail_block(tail_lines)
+        
         return ledger
+
 
     @staticmethod
     def _is_tail_line(line: Line) -> bool:
@@ -92,17 +92,17 @@ class Ledger:
         return line.ltype in (LineType.TIMESTAMP, LineType.EOF)
 
     @property
-    def month_sections(self) -> List[BaseSection]:
+    def month_segments(self) -> List[BaseSection]:
         """
         所有月度 section
         """
-        return self.sections
+        return self.segments
 
     def get_section(self, name: str) -> Optional[BaseSection]:
         """
         按 section 名称查找，例如 life.M02 / DGtler.M03
         """
-        for sec in self.sections:
+        for sec in self.segments:
             if sec.name == name:
                 return sec
         return None
@@ -117,25 +117,26 @@ class Ledger:
         """
         追加一个新的 section
         """
-        self.sections.append(section)
+        self.segments.append(section)
 
     def section_names(self) -> List[str]:
         """
         返回所有 section 名称
         """
-        return [sec.name for sec in self.sections]
+        return [sec.name for sec in self.segments]
 
     def all_lines(self) -> List[Line]:
         """
         返回整个文件的所有行
         """
         result: List[Line] = []
-        result.extend(self.head_lines)
+        result.extend(self.header)
 
-        for sec in self.sections:
+        for sec in self.segments:
             result.extend(sec.lines)
 
-        result.extend(self.tail_lines)
+        if self.tail:
+            result.extend(self.tail.to_lines())
         return result
 
     def to_raw_lines(self) -> List[str]:
@@ -182,7 +183,7 @@ class Ledger:
         """
         重建所有 section 的 summary
         """
-        for sec in self.sections:
+        for sec in self.segments:
             sec.rebuild_summary()
 
     def validate_section_summary(self, name: str) -> bool:
@@ -199,7 +200,7 @@ class Ledger:
         """
         校验所有 section 的 summary 是否正确
         """
-        return all(sec.validate_summary() for sec in self.sections)
+        return all(sec.validate_summary() for sec in self.segments)
 
     # -------- 调试 -------- #
 
@@ -208,12 +209,12 @@ class Ledger:
         调试输出
         """
         print("=== Ledger ===")
-        print(f"head_lines: {len(self.head_lines)}")
-        print(f"sections  : {len(self.sections)}")
-        print(f"tail_lines: {len(self.tail_lines)}")
+        print(f"header: {len(self.header)}")
+        print(f"segments  : {len(self.segments)}")
+        print(f"tail: {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
-        for i, sec in enumerate(self.sections, 1):
+        for i, sec in enumerate(self.segments, 1):
             print(f"[{i}] {sec.name}")
             print(f"    class      : {sec.__class__.__name__}")
             print(f"    summaries  : {len(sec.summary_lines)}")
@@ -224,7 +225,7 @@ class Ledger:
 
     def __repr__(self):
         return (
-            f"Ledger(head={len(self.head_lines)}, "
-            f"sections={len(self.sections)}, "
-            f"tail={len(self.tail_lines)})"
+            f"Ledger(head={len(self.header)}, "
+            f"segments={len(self.segments)}, "
+            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )

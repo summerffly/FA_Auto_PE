@@ -45,7 +45,7 @@ RE_TOTAL = re.compile(r'^## Total$')
 RE_UNIT = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
 # 聚合金额
 # 币安货币 : +80000
-RE_AGGR = re.compile(r'^(?!Total\b)(?!>)(.+) : ([+-])(\d+)$')
+RE_AGGR = re.compile(r'^(?!Total)(?!>)(.+) : ([+-])(\d+)$')
 # 月度汇总金额
 # > 02月薪资 : +1030
 RE_MONTH_SUM = re.compile(r'^> (\d{2}.+) : ([+-])(\d+)$')

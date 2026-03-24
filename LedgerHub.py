@@ -1,22 +1,25 @@
 """
 LedgerHub.py
-整个账本文件抽象
+所有账本合集
 """
 
 from __future__ import annotations
 from typing import Dict
 from Ledger import Ledger
+from SumLedger import SumLedger
 
 
 LEDGERS: Dict[str, Ledger] = {}
+SUM_LEDGER: Dict[str, SumLedger] = {}
 LEDGER_FILES: Dict[str, str] = {}
 
 
 def init_ledger_hub():
     """
-    初始化 LedgerHub
+    初始化LedgerHub
     加载所有账本
     """
+    load_sum_ledger("sum", "FA_SUM.md")
     load_ledger("life", "life.M.md")
     load_ledger("dg", "DGtler.M.md")
     load_ledger("keep", "KEEP.M.md")
@@ -37,7 +40,7 @@ def register_ledger(name: str, ledger: Ledger, filepath: str | None = None) -> N
 
 def load_ledger(name: str, filepath: str) -> Ledger:
     """
-    从文件加载账本并注册。
+    从文件加载账本
     """
     ledger = Ledger.parse_file(filepath)
     LEDGERS[name] = ledger
@@ -45,31 +48,59 @@ def load_ledger(name: str, filepath: str) -> Ledger:
     return ledger
 
 
+def load_sum_ledger(name: str, filepath: str) -> SumLedger:
+    """
+    从文件加载汇总账本
+    """
+    ledger = SumLedger.parse_file(filepath)
+    SUM_LEDGER[name] = ledger
+    LEDGER_FILES[name] = filepath
+    return ledger
+
+
 def get_ledger(name: str) -> Ledger:
     """
-    获取指定账本；不存在则抛异常。
+    获取指定账本
     """
     if name not in LEDGERS:
         raise KeyError(f"账本不存在: {name}")
     return LEDGERS[name]
 
 
+def get_sum_ledger(name: str) -> SumLedger:
+    """
+    获取指定汇总账本
+    """
+    if name not in SUM_LEDGER:
+        raise KeyError(f"汇总账本不存在: {name}")
+    return SUM_LEDGER[name]
+
+
 def has_ledger(name: str) -> bool:
+    """
+    判断账本是否存在
+    """
     return name in LEDGERS
 
 
 def list_ledgers() -> list[str]:
+    """
+    返回所有账本名称
+    """
     return sorted(LEDGERS.keys())
 
 
 def remove_ledger(name: str) -> None:
+    """
+    移除指定账本
+    """
     LEDGERS.pop(name, None)
     LEDGER_FILES.pop(name, None)
 
 
 def reload_ledger(name: str) -> Ledger:
     """
-    重新从磁盘加载指定账本。
+    重新从磁盘加载指定账本
     """
     if name not in LEDGER_FILES:
         raise KeyError(f"账本没有绑定文件路径: {name}")
@@ -82,7 +113,7 @@ def reload_ledger(name: str) -> Ledger:
 
 def reload_all() -> None:
     """
-    重新从磁盘加载所有已绑定路径的账本。
+    重新从磁盘加载所有账本
     """
     for name in list(LEDGER_FILES.keys()):
         reload_ledger(name)
@@ -90,7 +121,7 @@ def reload_all() -> None:
 
 def save_ledger(name: str, filepath: str | None = None) -> None:
     """
-    保存指定账本。
+    保存指定账本
     """
     ledger = get_ledger(name)
 
@@ -105,7 +136,7 @@ def save_ledger(name: str, filepath: str | None = None) -> None:
 
 def save_all() -> None:
     """
-    保存所有已绑定路径的账本。
+    保存所有账本
     """
     for name in list_ledgers():
         if name in LEDGER_FILES:

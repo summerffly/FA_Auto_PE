@@ -1,12 +1,8 @@
-"""
-Shell.py
-FA 记账系统 —— 交互式命令行 Shell
-
-基于标准库 cmd.Cmd，免费获得：
-  - Tab 补全命令名
-  - 上下键翻历史（依赖系统 readline）
-  - help <命令> 自动读取 docstring
-"""
+# File:        Shell.py
+# Author:      summer@SummerStudio
+# CreateDate:  2026-03-24
+# LastEdit:    2026-03-25
+# Description: 交互式命令行
 
 import cmd
 import shlex
@@ -16,7 +12,7 @@ import Engine as engine
 
 
 VERSION = "Alpha"
-DATE = "2026-03-24"
+DATE = "2026-03-25"
 
 # ----- 工具函数 -------------------- #
 
@@ -54,10 +50,10 @@ def _print_ledger_summary(name: str):
 
 
 # ======================================== #
-#    Shell 主类
+#    Shell
 # ======================================== #
 
-class FAShell(cmd.Cmd):
+class Shell(cmd.Cmd):
 
     intro = rf"""
  ____   __         __    _    _____  ___  
@@ -168,38 +164,7 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
                 print(f"  {ln.raw}")
         self._run(run)
 
-    # ----- 增删改 -------------------- #
-
-    def do_add(self, arg):
-        """add <账本> <区间> <金额> <描述>  在指定区间末尾追加一条记录"""
-        def run():
-            parts = _parse(arg)
-            _require(parts, 4, "add <账本> <区间> <金额> <描述>")
-            ledger   = hub.get_ledger(parts[0])
-            sec      = ledger.get_section(parts[1])
-            if sec is None:
-                raise ValueError(f"找不到区间: {parts[1]}")
-            value    = int(parts[2])
-            content  = parts[3]
-            sec.append_unit_after_details(value, content)
-            print(f"  已添加: {'+' if value >= 0 else ''}{value} {content}  → {parts[1]}")
-        self._run(run)
-
-    def do_del(self, arg):
-        """del <账本> <区间> <body行号>  删除 body_lines 中第 N 行（0 起）"""
-        def run():
-            parts = _parse(arg)
-            _require(parts, 3, "del <账本> <区间> <行号>")
-            ledger = hub.get_ledger(parts[0])
-            sec    = ledger.get_section(parts[1])
-            if sec is None:
-                raise ValueError(f"找不到区间: {parts[1]}")
-            idx = int(parts[2])
-            if not (0 <= idx < len(sec.body_lines)):
-                raise ValueError(f"行号越界 body_lines 共 {len(sec.body_lines)} 行")
-            removed = sec.body_lines.pop(idx)
-            print(f"  已删除第 {idx} 行: {removed.raw}")
-        self._run(run)
+    # ----- 修改 -------------------- #
     
     def do_mod(self, arg):
         """mod val|txt <账本> <区间> <行号> <新值>  修改金额(val)或描述(txt)"""
@@ -291,22 +256,19 @@ Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
     # ----- 测试入口 -------------------- #
 
     def do_test(self, arg):
-        """
-        test <life|dg|dk>
-        运行内置测试
-        """
+        """test <sum|life|dg|dk>"""
         def run():
             parts = _parse(arg)
-            _require(parts, 1, "test <life|dg|dk>")
+            _require(parts, 1, "test <sum|life|dg|dk>")
             target = parts[0].lower()
             if target == "sum":
-                engine.sum_test()
+                engine.test_sum()
             elif target == "life":
-                engine.life_test()
+                engine.test_life()
             elif target == "dg":
-                engine.dgtler_test()
+                engine.test_dgtler()
             elif target == "dk":
-                engine.dk_test()
+                engine.test_dk()
             else:
                 raise ValueError(f"未知测试目标: {target}，可选 life / dg / dk")
         self._run(run)

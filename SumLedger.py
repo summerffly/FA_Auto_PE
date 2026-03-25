@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Union
 from Line import Line, LineType
 from MiniSection import BaseMiniSection, make_minisection
-from Block import BaseBlock, TailBlock, make_block, make_tail_block
+from Summary import SummarySection, make_summary
+from Block import BaseBlock, TailBlock, make_tail_block
 
 # Summary 标题常量，集中管理避免散落的魔法字符串
 _SUMMARY_TITLE = "## Summary"
@@ -21,7 +22,7 @@ _SUMMARY_TITLE = "## Summary"
 class SumLedger:
     header: List[Line] = field(default_factory=list)
     segments: List[BaseMiniSection] = field(default_factory=list)
-    summary: Optional[BaseBlock] = None
+    summary: Optional[SummarySection] = None
     tail: Optional[TailBlock] = None
 
     # --------------------
@@ -62,9 +63,10 @@ class SumLedger:
             #   - 其他带标题（含 .M）  → make_minisection(...)  → Month / TitleMiniSection
             # -----------------------------------------------
             if current_title is None:
-                blk: BaseMiniSection = make_block(None, current_lines)
+                #blk: BaseMiniSection = make_tail_block(current_lines)
+                pass
             elif current_title.raw.strip() == _SUMMARY_TITLE:
-                ledger.summary = make_block(current_title, current_lines)
+                ledger.summary = make_summary(current_title, current_lines)
             else:
                 blk = make_minisection(current_title, current_lines)
                 ledger.segments.append(blk)

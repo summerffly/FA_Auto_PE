@@ -1,16 +1,17 @@
-"""
-LedgerHub.py
-所有账本合集
-"""
+# File:        LedgerHub.py
+# Author:      summer@SummerStudio
+# CreateDate:  2026-03-23
+# LastEdit:    2026-03-25
+# Description: 所有账本合集
 
 from __future__ import annotations
-from typing import Dict
+from typing import Dict, Optional
 from Ledger import Ledger
 from SumLedger import SumLedger
 
 
 LEDGERS: Dict[str, Ledger] = {}
-SUM_LEDGER: Dict[str, SumLedger] = {}
+SUM_LEDGER: Optional[SumLedger] = None
 LEDGER_FILES: Dict[str, str] = {}
 
 
@@ -19,7 +20,7 @@ def init_ledger_hub():
     初始化LedgerHub
     加载所有账本
     """
-    load_sum_ledger("sum", "FA_SUM.md")
+    load_sum_ledger("FA_SUM.md")
     load_ledger("life", "life.M.md")
     load_ledger("dg", "DGtler.M.md")
     load_ledger("keep", "KEEP.M.md")
@@ -48,13 +49,14 @@ def load_ledger(name: str, filepath: str) -> Ledger:
     return ledger
 
 
-def load_sum_ledger(name: str, filepath: str) -> SumLedger:
+def load_sum_ledger(filepath: str) -> SumLedger:
     """
     从文件加载汇总账本
     """
+    global SUM_LEDGER
     ledger = SumLedger.parse_file(filepath)
-    SUM_LEDGER[name] = ledger
-    LEDGER_FILES[name] = filepath
+    SUM_LEDGER = ledger
+    LEDGER_FILES["sum"] = filepath
     return ledger
 
 
@@ -67,13 +69,14 @@ def get_ledger(name: str) -> Ledger:
     return LEDGERS[name]
 
 
-def get_sum_ledger(name: str) -> SumLedger:
+def get_sum_ledger() -> SumLedger:
     """
     获取指定汇总账本
     """
-    if name not in SUM_LEDGER:
-        raise KeyError(f"汇总账本不存在: {name}")
-    return SUM_LEDGER[name]
+    global SUM_LEDGER
+    if SUM_LEDGER is None:
+        raise ValueError("汇总账本未加载")
+    return SUM_LEDGER
 
 
 def has_ledger(name: str) -> bool:
@@ -81,6 +84,13 @@ def has_ledger(name: str) -> bool:
     判断账本是否存在
     """
     return name in LEDGERS
+
+
+def has_sum_ledger() -> bool:
+    """
+    判断汇总账本是否已加载
+    """
+    return SUM_LEDGER is not None
 
 
 def list_ledgers() -> list[str]:
@@ -111,12 +121,29 @@ def reload_ledger(name: str) -> Ledger:
     return ledger
 
 
+def reload_sum_ledger() -> SumLedger:
+    """
+    重新从磁盘加载汇总账本
+    """
+    global SUM_LEDGER
+    if "sum" not in LEDGER_FILES:
+        raise KeyError("汇总账本没有绑定文件路径")
+    
+    filepath = LEDGER_FILES["sum"]
+    ledger = SumLedger.parse_file(filepath)
+    SUM_LEDGER = ledger
+    return ledger
+
+
 def reload_all() -> None:
     """
     重新从磁盘加载所有账本
     """
     for name in list(LEDGER_FILES.keys()):
         reload_ledger(name)
+
+    if "sum" in LEDGER_FILES:
+        reload_sum_ledger()
 
 
 def save_ledger(name: str, filepath: str | None = None) -> None:
@@ -134,6 +161,23 @@ def save_ledger(name: str, filepath: str | None = None) -> None:
     ledger.save(filepath)
 
 
+def save_sum_ledger(filepath: str | None = None) -> None:
+    """
+    保存汇总账本
+    """
+    global SUM_LEDGER
+    if SUM_LEDGER is None:
+        raise ValueError("汇总账本未加载")
+    
+    if filepath is None:
+        filepath = LEDGER_FILES.get("sum")
+    
+    if not filepath:
+        raise ValueError("汇总账本没有可用的保存路径")
+    
+    SUM_LEDGER.save(filepath)
+
+
 def save_all() -> None:
     """
     保存所有账本
@@ -141,3 +185,6 @@ def save_all() -> None:
     for name in list_ledgers():
         if name in LEDGER_FILES:
             LEDGERS[name].save(LEDGER_FILES[name])
+
+    if "sum" in LEDGER_FILES:
+        save_sum_ledger()

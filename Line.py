@@ -1,66 +1,19 @@
-"""
-Line.py
-Markdown 行解析
-每一行被解析为一个 Line dataclass 包含类型、金额、内容。
-"""
+# File:        Line.py
+# Author:      summer@SummerStudio
+# CreateDate:  2026-03-14
+# LastEdit:    2026-03-25
+# Description: Markdown行解析
 
 import re
 from datetime import datetime
 from enum import Enum, auto
 from dataclasses import dataclass
+from typing import ClassVar
 
 
-# -------- Line正则表达式 -------- #
-
-# 空行
-RE_BLANK = re.compile(r'^\s*$')
-# 分隔线
-# ```
-RE_DELIMITER = re.compile(r'^`{3}$')
-# EOF
-# ---
-RE_EOF = re.compile(r'^-{3}$')
-# 更新时间戳
-# *Update Time : 2024-06-01 12:00:00*
-RE_TIMESTAMP = re.compile(r'^\*Update Time : (.+)\*$')
-
-# 总标题
-# # DGtler.Month
-RE_HEAD_TITLE = re.compile(r'^# (.+)$')
-# 月度标题
-# ## DGtler.M03
-RE_MONTH_TITLE = re.compile(r'^## (.+)(\.M\d{2})$')
-# 分项标题
-# ## NGXP
-RE_SUB_TITLE = re.compile(r'^## (?!Total$)(?!.*\.M\d{2}$)(.+)$')
-# 分项Tag
-# ### Apple
-RE_SUB_TAG = re.compile(r'^### (.+)$')
-# 总计
-# ## Total
-RE_TOTAL = re.compile(r'^## Total$')
-
-# 收支条目
-# `- 50` 猫罐头
-RE_UNIT = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
-# 聚合金额
-# 币安货币 : +80000
-RE_AGGR = re.compile(r'^(?!Total)(?!>)(.+) : ([+-])(\d+)$')
-# 月度汇总金额
-# > 02月薪资 : +1030
-RE_MONTH_SUM = re.compile(r'^> (\d{2}.+) : ([+-])(\d+)$')
-# 分项汇总金额
-# > +100
-RE_TITLE_SUM = re.compile(r'^> ([+-])(\d+)$')
-# 分项Tag汇总金额
-# >> +100
-RE_SUB_TITLE_SUM = re.compile(r'^>> ([+-])(\d+)$')
-# 总计金额
-# Total : +820
-RE_TOTAL_SUM = re.compile(r'^Total : ([+-])(\d+)$')
-
-
-# -------- Line类型枚举 -------- #
+# ======================================== #
+#    Line 类型枚举
+# ======================================== #
 
 class LineType(Enum):
     BLANK         = auto()
@@ -81,7 +34,63 @@ class LineType(Enum):
     UNKNOWN       = auto()
 
 
-# -------- Line Class -------- #
+# ======================================== #
+#    Line 正则表达式
+# ======================================== #
+
+@dataclass(frozen=True)
+class LineRegex:
+    # 空行
+    BLANK: ClassVar[re.Pattern] = re.compile(r'^\s*$')
+    # 分隔线
+    # ```
+    DELIMITER: ClassVar[re.Pattern] = re.compile(r'^`{3}$')
+    # EOF
+    # ---
+    EOF: ClassVar[re.Pattern] = re.compile(r'^-{3}$')
+    # 更新时间戳
+    # *Update Time : 2024-06-01 12:00:00*
+    TIMESTAMP: ClassVar[re.Pattern] = re.compile(r'^\*Update Time : (.+)\*$')
+
+    # 总标题
+    # # DGtler.Month
+    HEAD_TITLE: ClassVar[re.Pattern] = re.compile(r'^# (.+)$')
+    # 月度标题
+    # ## DGtler.M03
+    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (.+)(\.M\d{2})$')
+    # 分项标题
+    # ## NGXP
+    SUB_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!Total$)(?!.*\.M\d{2}$)(.+)$')
+    # 分项Tag
+    # ### Apple
+    SUB_TAG: ClassVar[re.Pattern] = re.compile(r'^### (.+)$')
+    # 总计
+    # ## Total
+    TOTAL: ClassVar[re.Pattern] = re.compile(r'^## Total$')
+
+    # 收支条目
+    # `- 50` 猫罐头
+    UNIT: ClassVar[re.Pattern] = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
+    # 聚合金额
+    # 币安货币 : +80000
+    AGGR: ClassVar[re.Pattern] = re.compile(r'^(?!Total)(?!>)(.+) : ([+-])(\d+)$')
+    # 月度汇总金额
+    # > 02月薪资 : +1030
+    MONTH_SUM: ClassVar[re.Pattern] = re.compile(r'^> (\d{2}.+) : ([+-])(\d+)$')
+    # 分项汇总金额
+    # > +100
+    TITLE_SUM: ClassVar[re.Pattern] = re.compile(r'^> ([+-])(\d+)$')
+    # 分项Tag汇总金额
+    # >> +100
+    SUB_TITLE_SUM: ClassVar[re.Pattern] = re.compile(r'^>> ([+-])(\d+)$')
+    # 总计金额
+    # Total : +820
+    TOTAL_SUM: ClassVar[re.Pattern] = re.compile(r'^Total : ([+-])(\d+)$')
+
+
+# ======================================== #
+#    Line
+# ======================================== #
 
 @dataclass
 class Line:
@@ -89,6 +98,9 @@ class Line:
     ltype: LineType = LineType.UNKNOWN
     value: int = 0
     content: str = ""
+
+    # 内部引用
+    RE = LineRegex
 
     @classmethod
     def parse(cls, raw: str) -> "Line":
@@ -109,70 +121,71 @@ class Line:
 
     def _parse(self):
         s = self.raw
+        RE = self.RE
 
-        if RE_BLANK.match(s):
+        if RE.BLANK.match(s):
             self.ltype = LineType.BLANK
             return
-        if RE_DELIMITER.match(s):
+        if RE.DELIMITER.match(s):
             self.ltype = LineType.DELIMITER
             return
-        if RE_EOF.match(s):
+        if RE.EOF.match(s):
             self.ltype = LineType.EOF
             return
-        if RE_TIMESTAMP.match(s):
+        if RE.TIMESTAMP.match(s):
             self.ltype = LineType.TIMESTAMP
             return
 
-        if RE_HEAD_TITLE.match(s):
+        if RE.HEAD_TITLE.match(s):
             self.ltype = LineType.HEAD_TITLE
             return
-        if RE_MONTH_TITLE.match(s):
+        if RE.MONTH_TITLE.match(s):
             self.ltype = LineType.MONTH_TITLE
             return 
-        if RE_SUB_TITLE.match(s):
+        if RE.SUB_TITLE.match(s):
             self.ltype = LineType.SUB_TITLE
             return
-        if RE_SUB_TAG.match(s):
+        if RE.SUB_TAG.match(s):
             self.ltype = LineType.SUB_TAG
             return
-        if RE_TOTAL.match(s):
+        if RE.TOTAL.match(s):
             self.ltype = LineType.TOTAL
             return
 
-        m = RE_UNIT.match(s)
+        m = RE.UNIT.match(s)
         if m:
             self.ltype = LineType.UNIT
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             self.content = m.group(3)
             return
         
-        m = RE_AGGR.match(s)
+        m = RE.AGGR.match(s)
         if m:
             self.ltype = LineType.AGGR
             self.value = int(m.group(3)) if m.group(2) == "+" else -int(m.group(3))
             self.content = m.group(1)
             return
 
-        m = RE_MONTH_SUM.match(s)
+        m = RE.MONTH_SUM.match(s)
         if m:
             self.ltype = LineType.MONTH_SUM
             self.value = int(m.group(3)) if m.group(2) == "+" else -int(m.group(3))
             self.content = m.group(1)
             return
 
-        m = RE_TITLE_SUM.match(s)
+        m = RE.TITLE_SUM.match(s)
         if m:
             self.ltype = LineType.TITLE_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             return
 
-        m = RE_SUB_TITLE_SUM.match(s)
+        m = RE.SUB_TITLE_SUM.match(s)
         if m:
             self.ltype = LineType.SUB_TITLE_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             return
 
-        m = RE_TOTAL_SUM.match(s)
+        m = RE.TOTAL_SUM.match(s)
         if m:
             self.ltype = LineType.TOTAL_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
@@ -183,7 +196,7 @@ class Line:
         self.content = s
 
 
-    # -------- 序列化Markdown -------- #
+    # ----- 序列化Markdown -------------------- #
 
     def to_raw(self) -> str:
         if self.ltype == LineType.UNIT:
@@ -220,7 +233,7 @@ class Line:
         return self.raw
 
 
-    # -------- 辅助 -------- #
+    # ----- 辅助 -------------------- #
 
     @property
     def is_amount(self) -> bool:

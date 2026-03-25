@@ -1,26 +1,26 @@
-"""
-Ledger.py
-整个账本文件抽象
-"""
+# File:        Ledger.py
+# Author:      summer@SummerStudio
+# CreateDate:  2026-03-22
+# LastEdit:    2026-03-25
+# Description: 独立账本对象
 
 from dataclasses import dataclass, field
 from typing import List, Optional
 from Line import Line, LineType
 from Section import BaseSection, make_section
-from Block import BaseBlock, TailBlock, make_block, make_tail_block
+from MiniSection import BaseMiniSection, make_minisection
+from Block import TailBlock, make_tail_block
 
+
+# ======================================== #
+#    Ledger
+# ======================================== #
 
 @dataclass
 class Ledger:
-    """
-    整个文件分为三部分：
-    1. header  - 第一个 section 前面的内容
-    2. segments    - 月度 segments
-    3. tail_lines  - 最后一个 section 之后的内容
-    """
     header: List[Line] = field(default_factory=list)
     segments: List[BaseSection] = field(default_factory=list)
-    total: Optional[BaseBlock] = None
+    total: Optional[BaseMiniSection] = None
     tail: Optional[TailBlock] = None
 
     @classmethod
@@ -49,6 +49,31 @@ class Ledger:
         tail_lines: List[Line] = []  # 新增：临时存储tail行
 
         for ln in lines:
+            # 处理 ## Total 特殊区块
+            if ln.ltype == LineType.TOTAL:
+                if current_section is not None:
+                    ledger.segments.append(current_section)
+                    current_section = None
+                
+                # 收集 Total 区块的内容
+                total_lines = []
+                i = lines.index(ln) + 1
+                while i < len(lines):
+                    next_line = lines[i]
+                    # 遇到 TIMESTAMP 或 EOF 时停止收集
+                    if next_line.ltype in (LineType.TIMESTAMP, LineType.EOF):
+                        break
+                    total_lines.append(next_line)
+                    i += 1
+                
+                # 创建 TotalMiniSection
+                ledger.total = make_minisection(ln, total_lines)
+                seen_section = True
+                # 跳过已处理的行
+                for _ in range(len(total_lines)):
+                    lines.pop(lines.index(ln) + 1)
+                continue
+            
             if ln.ltype == LineType.MONTH_TITLE or ln.ltype == LineType.SUB_TAG:
                 if current_section is not None:
                     ledger.segments.append(current_section)
@@ -135,6 +160,10 @@ class Ledger:
         for sec in self.segments:
             result.extend(sec.lines)
 
+        # 添加 Total 区块
+        if self.total:
+            result.extend(self.total.to_lines())
+
         if self.tail:
             result.extend(self.tail.to_lines())
         return result
@@ -202,30 +231,45 @@ class Ledger:
         """
         return all(sec.validate_summary() for sec in self.segments)
 
+    def validate_total(self) -> bool:
+        """
+        校验 Total 区块是否正确
+        """
+        if self.total is None:
+            return True  # 没有 Total 区块也是有效的
+        return self.total.validate()
+
     # -------- 调试 -------- #
 
     def dump(self):
-        """
-        调试输出
-        """
         print("=== Ledger ===")
         print(f"header: {len(self.header)}")
-        print(f"segments  : {len(self.segments)}")
+        print(f"segments: {len(self.segments)}")
+        print(f"total: {len(self.total.to_lines()) if self.total else 'None'}")
         print(f"tail: {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
         for i, sec in enumerate(self.segments, 1):
-            print(f"[{i}] {sec.name}")
+            print(f"[Segment {i}] {sec.name}")
             print(f"    class      : {sec.__class__.__name__}")
             print(f"    summaries  : {len(sec.summary_lines)}")
             print(f"    body       : {len(sec.body_lines)}")
             print(f"    units      : {len(sec.unit_lines)}")
             print(f"    blanks     : {len(sec.blank_lines)}")
             print(f"    total_unit : {sec.total_units()}")
+            print()
+
+        if self.total:
+        #    print(self.total)
+            print(f"[Total] {self.total.name}")
+            print(f"    class      : {self.total.__class__.__name__}")
+            print(f"    value      : {self.total.value}")
+            print(f"    lines      : {len(self.total.summary_lines)}")
 
     def __repr__(self):
         return (
-            f"Ledger(head={len(self.header)}, "
+            f"Ledger(header={len(self.header)}, "
             f"segments={len(self.segments)}, "
+            f"total={len(self.total.to_lines()) if self.total else 'None'}, "
             f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )

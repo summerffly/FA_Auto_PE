@@ -11,9 +11,6 @@ import LedgerHub as hub
 import Engine as engine
 
 
-VERSION = "Alpha"
-DATE = "2026-03-25"
-
 # ----- 工具函数 -------------------- #
 
 def _parse(arg: str) -> list[str]:
@@ -35,7 +32,7 @@ def _print_section_summary(ledger, sec_name: str):
     if sec is None:
         print(f"  [!] 找不到区间: {sec_name}")
         return
-    total = sec.total_units()
+    total = sec.calc_units_sum()
     sign  = "+" if total >= 0 else ""
     print(f"  {sec.name:<20} {sign}{total}")
 
@@ -44,7 +41,7 @@ def _print_ledger_summary(name: str):
     ledger = hub.get_ledger(name)
     print(f"\n── {name} ──")
     for sec in ledger.sections:
-        total = sec.total_units()
+        total = sec.calc_units_sum()
         sign  = "+" if total >= 0 else ""
         print(f"  {sec.name:<20} {sign}{total}")
 
@@ -55,14 +52,8 @@ def _print_ledger_summary(name: str):
 
 class Shell(cmd.Cmd):
 
-    intro = rf"""
- ____   __         __    _    _____  ___  
-| |_   / /\       / /\  | | |  | |  / / \ 
-|_|   /_/--\     /_/--\ \_\_/  |_|  \_\_/ 
-
-Version: {Fore.CYAN}{VERSION}{Style.RESET_ALL}
-Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
-"""
+    #intro = f"{Fore.CYAN}Start Shell{Style.RESET_ALL}"
+    intro = rf" "
     prompt = "CMD > "
 
     # ----- 内部辅助 -------------------- #

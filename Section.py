@@ -1,7 +1,7 @@
 # File:        Section.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-22
-# LastEdit:    2026-03-25
+# LastEdit:    2026-03-26
 # Description: 
 
 import re
@@ -47,38 +47,15 @@ class BaseSection(ABC):
 
     @property
     def lines(self) -> List[Line]:
-        """
-        返回完整 section 行
-        """
         return [self.head_line] + self.summary_lines + self.body_lines
 
     @property
     def unit_lines(self) -> List[Line]:
-        """
-        body_lines 中的 UNIT 行
-        """
         return [ln for ln in self.body_lines if ln.ltype == LineType.UNIT]
 
     @property
-    def detail_lines(self) -> List[Line]:
-        return self.unit_lines
-
-    @property
     def blank_lines(self) -> List[Line]:
-        """
-        body_lines 中的空行
-        """
         return [ln for ln in self.body_lines if ln.ltype == LineType.BLANK]
-
-    @property
-    def other_lines(self) -> List[Line]:
-        """
-        body_lines 中除 UNIT / BLANK 之外的其他行
-        """
-        return [
-            ln for ln in self.body_lines
-            if ln.ltype not in (LineType.UNIT, LineType.BLANK)
-        ]
 
     def add_line(self, line: Line):
         if self.is_summary_line(line):
@@ -86,16 +63,10 @@ class BaseSection(ABC):
         else:
             self.body_lines.append(line)
 
-    def total_units(self) -> int:
-        """
-        所有 UNIT 行求和
-        """
+    def calc_units_sum(self) -> int:
         return sum(ln.value for ln in self.unit_lines)
 
-    def find_summary(self, keyword: str) -> Optional[Line]:
-        """
-        按关键字查找 summary 行
-        """
+    def find_summary_line(self, keyword: str) -> Optional[Line]:
         for ln in self.summary_lines:
             if keyword in ln.content:
                 return ln
@@ -106,6 +77,13 @@ class BaseSection(ABC):
 
     def to_raw(self) -> str:
         return "\n".join(self.to_raw_lines())
+    
+
+    # ----- 抽象方法 -------------------- #
+
+    @abstractmethod
+    def validate_structure(self) -> List[str]:
+        raise NotImplementedError
 
     @abstractmethod
     def is_summary_line(self, line: Line) -> bool:
@@ -126,21 +104,23 @@ class BaseSection(ABC):
 
 @dataclass
 class LifeSection(BaseSection):
+    def validate_structure(self) -> List[str]:
+        errors = []
+        if len(self.summary_lines) != 3:
+            errors.append(f"包含 {len(self.summary_lines)} SummaryLines")
+        if not self.body_lines:
+            errors.append(f"缺失 BodyLines")
+        return errors
+
     def is_summary_line(self, line: Line) -> bool:
         return line.ltype == LineType.MONTH_SUM
 
     def rebuild_summary(self):
-        """
-        规则：
-        - 薪资保留原值
-        - 支出 = 所有负数 UNIT 求和
-        - 结余 = 薪资 + 支出
-        """
-        s_income = self.find_summary("薪资")
-        if s_income is None:
+        income_line = self.find_summary_line("薪资")
+        if income_line is None:
             raise ValueError(f"{self.name} 缺少 '薪资'")
 
-        income = s_income.value
+        income = income_line.value
         expense = sum(ln.value for ln in self.unit_lines if ln.value < 0)
         balance = income + expense
 
@@ -172,20 +152,20 @@ class LifeSection(BaseSection):
         ]
 
     def validate_summary(self) -> bool:
-        s_income = self.find_summary("薪资")
-        s_expense = self.find_summary("支出")
-        s_balance = self.find_summary("结余")
+        income_line = self.find_summary_line("薪资")
+        expense_line = self.find_summary_line("支出")
+        balance_line = self.find_summary_line("结余")
 
-        if s_income is None or s_expense is None or s_balance is None:
+        if income_line is None or expense_line is None or balance_line is None:
             return False
 
-        income = s_income.value
+        income = income_line.value
         expense = sum(ln.value for ln in self.unit_lines if ln.value < 0)
         balance = income + expense
 
         return (
-            s_expense.value == expense and
-            s_balance.value == balance
+            expense_line.value == expense and
+            balance_line.value == balance
         )
 
     def __repr__(self):
@@ -203,11 +183,19 @@ class LifeSection(BaseSection):
 
 @dataclass
 class MonthSection(BaseSection):
+    def validate_structure(self) -> List[str]:
+        errors = []
+        if len(self.summary_lines) != 1:
+            errors.append(f"包含 {len(self.summary_lines)} SummaryLines")
+        if not self.body_lines:
+            errors.append(f"缺失 BodyLines")
+        return errors
+
     def is_summary_line(self, line: Line) -> bool:
         return line.ltype == LineType.TITLE_SUM
 
     def rebuild_summary(self):
-        total = self.total_units()
+        total = self.calc_units_sum()
         self.summary_lines = [
             Line(
                 raw="",
@@ -224,7 +212,7 @@ class MonthSection(BaseSection):
         ln = self.summary_lines[0]
         return (
             ln.ltype == LineType.TITLE_SUM and
-            ln.value == self.total_units()
+            ln.value == self.calc_units_sum()
         )
 
     def __repr__(self):
@@ -242,11 +230,19 @@ class MonthSection(BaseSection):
 
 @dataclass
 class TitleSection(BaseSection):
+    def validate_structure(self) -> List[str]:
+        errors = []
+        if len(self.summary_lines) != 1:
+            errors.append(f"包含 {len(self.summary_lines)} SummaryLines")
+        if not self.body_lines:
+            errors.append(f"缺失 BodyLines")
+        return errors
+
     def is_summary_line(self, line: Line) -> bool:
         return line.ltype == LineType.SUB_TITLE_SUM
 
     def rebuild_summary(self):
-        total = self.total_units()
+        total = self.calc_units_sum()
         self.summary_lines = [
             Line(
                 raw="",
@@ -263,7 +259,7 @@ class TitleSection(BaseSection):
         ln = self.summary_lines[0]
         return (
             ln.ltype == LineType.SUB_TITLE_SUM and
-            ln.value == self.total_units()
+            ln.value == self.calc_units_sum()
         )
 
     def __repr__(self):
@@ -277,20 +273,25 @@ class TitleSection(BaseSection):
 
 # ----- Section Factory -------------------- #
 
-def make_section(headline: Line) -> BaseSection:
+def make_section(headline: Line, lines: List[Line]) -> BaseSection:
     raw = headline.raw.strip()
     ltype = headline.ltype
+    section = None
 
-    # LifeSection
     if ltype == LineType.MONTH_TITLE and "life" in raw:
-        return LifeSection(head_line=headline)
+        # LifeSection
+        section = LifeSection(head_line=headline)
+    elif ltype == LineType.MONTH_TITLE and "life" not in raw:
+        # MonthSection
+        section = MonthSection(head_line=headline)
+    elif ltype == LineType.SUB_TAG:
+        # TitleSection
+        section = TitleSection(head_line=headline)
+    else:
+        raise ValueError(f"未知 Section 类型: {raw}")
     
-    # MonthSection
-    if ltype == LineType.MONTH_TITLE and "life" not in raw:
-        return MonthSection(head_line=headline)
+    if lines is not None:
+        for line in lines:
+            section.add_line(line)
     
-    # TitleSection
-    if ltype == LineType.SUB_TAG:
-        return TitleSection(head_line=headline)
-    
-    raise ValueError(f"未知 Section 类型: {raw}")
+    return section

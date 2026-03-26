@@ -1,7 +1,7 @@
 # File:        Engine.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-25
+# LastEdit:    2026-03-26
 # Description: FA系统核心引擎
 
 import LedgerHub as hub
@@ -21,13 +21,8 @@ def test_life():
     ledger.dump()
     print()
 
-    print("=== Section Names ===")
-    for name in ledger.section_names():
-        print(name)
-    print()
-
-    #ledger.rebuild_all_summaries()
     #print("=== Rebuild Markdown ===")
+    #ledger.rebuild_all_summaries()
     #print(ledger.to_raw())
 
     #hub.save_ledger("life", "Test.md")
@@ -39,11 +34,6 @@ def test_dgtler():
     print()
     
     ledger.dump()
-    print()
-
-    print("=== Section Names ===")
-    for name in ledger.section_names():
-        print(name)
     print()
 
     #print("=== Rebuild Markdown ===")
@@ -59,11 +49,6 @@ def test_dk():
     print()
 
     ledger.dump()
-    print()
-
-    print("=== Section Names ===")
-    for name in ledger.section_names():
-        print(name)
     print()
 
     #print("=== Rebuild Markdown ===")

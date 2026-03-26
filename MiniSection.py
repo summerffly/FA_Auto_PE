@@ -1,9 +1,10 @@
 # File:        MiniSection.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-25
+# LastEdit:    2026-03-26
 # Description: 
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional
 from Line import Line, LineType
@@ -15,7 +16,7 @@ from Line import LineRegex as RE
 # ======================================== #
 
 @dataclass
-class BaseMiniSection():
+class BaseMiniSection(ABC):
     head_line: Line
     summary_lines: List[Line] = field(default_factory=list)
 
@@ -32,11 +33,18 @@ class BaseMiniSection():
             return "Total"
 
     def to_lines(self) -> List[Line]:
-        out = []
+        out_lines = []
         if self.head_line:
-            out.append(self.head_line)
-        out.extend(self.summary_lines)
-        return out
+            out_lines.append(self.head_line)
+        out_lines.extend(self.summary_lines)
+        return out_lines
+
+
+    # ----- 抽象方法 -------------------- #
+
+    @abstractmethod
+    def validate_structure(self) -> List[str]:
+        raise NotImplementedError
 
 
 # ======================================== #
@@ -45,7 +53,14 @@ class BaseMiniSection():
 
 @dataclass
 class MonthMiniSection(BaseMiniSection):
-    def get(self, key: str) -> Optional[Line]:
+    def validate_structure(self) -> List[str]:
+        errors = []
+        sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.MONTH_SUM)
+        if sum_line_count != 3:
+            errors.append(f"包含 {sum_line_count} SummaryLines")
+        return errors
+    
+    def find_line(self, key: str) -> Optional[Line]:
         for ln in self.summary_lines:
             if ln.ltype == LineType.MONTH_SUM and key in ln.content:
                 return ln
@@ -53,18 +68,33 @@ class MonthMiniSection(BaseMiniSection):
 
     @property
     def income(self) -> int:
-        ln = self.get("薪资")
+        ln = self.find_line("薪资")
         return ln.value if ln else 0
 
     @property
     def expense(self) -> int:
-        ln = self.get("支出")
+        ln = self.find_line("支出")
         return ln.value if ln else 0
 
     @property
     def balance(self) -> int:
-        ln = self.get("结余")
+        ln = self.find_line("结余")
         return ln.value if ln else 0
+    
+    def set_income(self, value: int):
+        ln = self.find_line("薪资")
+        if ln:
+            ln.value = value
+
+    def set_expense(self, value: int):
+        ln = self.find_line("支出")
+        if ln:
+            ln.value = value
+
+    def set_balance(self, value: int):
+        ln = self.find_line("结余")
+        if ln:
+            ln.value = value
 
 
 # ======================================== #
@@ -73,7 +103,14 @@ class MonthMiniSection(BaseMiniSection):
 
 @dataclass
 class TitleMiniSection(BaseMiniSection):
-    def summary_line(self) -> Optional[Line]:
+    def validate_structure(self) -> List[str]:
+        errors = []
+        sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.TITLE_SUM)
+        if sum_line_count != 1:
+            errors.append(f"包含 {sum_line_count} SummaryLines")
+        return errors
+
+    def get_summary_line(self) -> Optional[Line]:
         for ln in self.summary_lines:
             if ln.ltype == LineType.TITLE_SUM:
                 return ln
@@ -81,8 +118,13 @@ class TitleMiniSection(BaseMiniSection):
 
     @property
     def value(self) -> int:
-        ln = self.summary_line()
+        ln = self.get_summary_line()
         return ln.value if ln else 0
+    
+    def set_value(self, value: int):
+        ln = self.get_summary_line()
+        if ln:
+            ln.value = value
 
 
 # ======================================== #
@@ -90,27 +132,33 @@ class TitleMiniSection(BaseMiniSection):
 # ======================================== #
 @dataclass
 class TotalMiniSection(BaseMiniSection):
-    def value_line(self) -> Optional[Line]:
-        """查找 AGGR 类型的行（Total : -1680）"""
+    def validate_structure(self) -> List[str]:
+        errors = []
+        sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.TOTAL_SUM)
+        delimiter_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.DELIMITER)
+        
+        if sum_line_count != 1:
+            errors.append(f"包含 {sum_line_count} SummaryLines")
+        if delimiter_count != 2:
+            errors.append(f"包含 {delimiter_count} 分隔符行")
+        
+        return errors
+
+    def get_value_line(self) -> Optional[Line]:
         for ln in self.summary_lines:
-            if ln.ltype == LineType.AGGR:
+            if ln.ltype == LineType.TOTAL_SUM:
                 return ln
         return None
 
     @property
     def value(self) -> int:
-        ln = self.value_line()
+        ln = self.get_value_line()
         return ln.value if ln else 0
-
-    def to_lines(self) -> List[Line]:
-        """
-        重写 to_lines 确保输出格式正确
-        """
-        out = []
-        if self.head_line:
-            out.append(self.head_line)
-        out.extend(self.summary_lines)
-        return out
+    
+    def set_value(self, value: int):
+        ln = self.get_value_line()
+        if ln:
+            ln.value = value
 
 
 # ----- MiniSection Factory -------------------- #
@@ -118,17 +166,15 @@ class TotalMiniSection(BaseMiniSection):
 def make_minisection(headline: Line, lines: List[Line]) -> BaseMiniSection:
     raw = headline.raw.strip()
     ltype = headline.ltype
-
-    # MonthMiniSection
+    
     if ltype == LineType.MONTH_TITLE:
+        # MonthMiniSection
         return MonthMiniSection(head_line=headline, summary_lines=lines)
-    
-    # TitleMiniSection
-    if ltype == LineType.SUB_TITLE:
+    elif ltype == LineType.SUB_TITLE:
+         # TitleMiniSection
         return TitleMiniSection(head_line=headline, summary_lines=lines)
-    
-    # TotalMiniSection
-    if ltype == LineType.TOTAL:
+    elif ltype == LineType.TOTAL:
+        # TotalMiniSection
         return TotalMiniSection(head_line=headline, summary_lines=lines)
-
-    raise ValueError(f"未知 MiniSection 类型: {raw}")
+    else:
+        raise ValueError(f"未知 MiniSection 类型: {raw}")

@@ -6,14 +6,14 @@
 
 from __future__ import annotations
 from typing import Dict, Optional
+from colorama import Fore, Style
 from Ledger import Ledger
 from SumLedger import SumLedger
 
 
-LEDGERS: Dict[str, Ledger] = {}
 SUM_LEDGER: Optional[SumLedger] = None
+LEDGERS: Dict[str, Ledger] = {}
 LEDGER_FILES: Dict[str, str] = {}
-
 
 def init_ledger_hub():
     """
@@ -29,6 +29,24 @@ def init_ledger_hub():
     load_ledger("ns", "NS.md")
     load_ledger("travel", "travel.md")
     load_ledger("box", "BOX.md")
+
+def validate_ledger_hub():
+    if SUM_LEDGER is not None:
+        sum_errors = SUM_LEDGER.validate_structure()
+        if sum_errors:
+            for error in sum_errors:
+                print(f"FA_SUM.md: {Fore.RED}[!]{Style.RESET_ALL} {error}")
+        else:
+            print(f"FA_SUM.md: {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
+    
+    for name, ledger in LEDGERS.items():
+        errors = ledger.validate_structure()
+        if errors:
+            for error in errors:
+                print(f"{LEDGER_FILES.get(name, name)}: {Fore.RED}[!]{Style.RESET_ALL} {error}")
+        else:
+            print(f"{LEDGER_FILES.get(name, name)}: {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
+
 
 def register_ledger(name: str, ledger: Ledger, filepath: str | None = None) -> None:
     """

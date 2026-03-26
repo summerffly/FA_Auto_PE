@@ -1,22 +1,22 @@
-"""
-SumLedger.py
-基于 Block / MiniSection 架构的账本解析
-"""
+# File:        SumLedger.py
+# Author:      summer@SummerStudio
+# CreateDate:  2026-03-24
+# LastEdit:    2026-03-26
+# Description: 汇总账本对象
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
+from colorama import Fore, Style
 from Line import Line, LineType
+from Line import LineRegex as RE
 from MiniSection import BaseMiniSection, make_minisection
 from Summary import SummarySection, make_summary
 from Block import BaseBlock, TailBlock, make_tail_block
 
-# Summary 标题常量，集中管理避免散落的魔法字符串
-_SUMMARY_TITLE = "## Summary"
 
-
-# ========================
-# Ledger
-# ========================
+# ======================================== #
+#    SumLedger
+# ======================================== #
 
 @dataclass
 class SumLedger:
@@ -25,170 +25,213 @@ class SumLedger:
     summary: Optional[SummarySection] = None
     tail: Optional[TailBlock] = None
 
-    # --------------------
-    # Parse
-    # --------------------
+    # ----- 解析方法 -------------------- #
 
-    @staticmethod
-    def parse_text(text: str) -> "SumLedger":
-        raw_lines = text.splitlines()
-        lines = [Line.parse(raw) for raw in raw_lines]
-        return SumLedger.parse_lines(lines)
-
-    @staticmethod
-    def parse_file(filepath: str, encoding: str = "utf-8") -> "SumLedger":
+    @classmethod
+    def parse_file(cls, filepath: str, encoding: str = "utf-8") -> "SumLedger":
         with open(filepath, "r", encoding=encoding) as f:
             text = f.read()
-        return SumLedger.parse_text(text)
+        return cls.parse_text(text)
 
-    @staticmethod
-    def parse_lines(lines: List[Line]) -> "SumLedger":
-        ledger = SumLedger()
+    @classmethod
+    def parse_text(cls, text: str) -> "SumLedger":
+        raw_lines = text.splitlines()
+        lines = [Line.parse(raw) for raw in raw_lines]
+        return cls.parse_lines(lines)
 
-        i = 0
-        n = len(lines)
+    @classmethod
+    def parse_lines(cls, lines: List[Line]) -> "SumLedger":
+        parser = _SumLedgerParser(lines)
+        return parser.parse()
 
-        current_title: Optional[Line] = None
-        current_lines: List[Line] = []
+    # ----- 数据访问方法 -------------------- #
 
-        def flush_block():
-            nonlocal current_title, current_lines
-            if current_title is None and not current_lines:
-                return
-
-            # -----------------------------------------------
-            # 路由规则：
-            #   - 无标题               → make_block(None, ...)  → ValueBlock
-            #   - ## Summary           → make_block(title, ...) → SummaryBlock
-            #   - 其他带标题（含 .M）  → make_minisection(...)  → Month / TitleMiniSection
-            # -----------------------------------------------
-            if current_title is None:
-                #blk: BaseMiniSection = make_tail_block(current_lines)
-                pass
-            elif current_title.raw.strip() == _SUMMARY_TITLE:
-                ledger.summary = make_summary(current_title, current_lines)
-            else:
-                blk = make_minisection(current_title, current_lines)
-                ledger.segments.append(blk)
-
-            current_title = None
-            current_lines = []
-
-        while i < n:
-            ln = lines[i]
-
-            # --------------------
-            # 尾部触发：TIMESTAMP 或 EOF
-            # 遇到其中之一，结束当前 block，收集剩余所有行为 TailBlock
-            # --------------------
-            if ln.ltype in (LineType.TIMESTAMP, LineType.EOF):
-                flush_block()
-                tail_lines = lines[i:]
-                ledger.tail = make_tail_block(tail_lines)
-                break
-
-            # --------------------
-            # 顶层标题（新 Block / MiniSection）
-            # --------------------
-            if ln.ltype in (LineType.MONTH_TITLE, LineType.SUB_TITLE, LineType.SUB_TAG):
-                flush_block()
-                current_title = ln
-                current_lines = []
-                i += 1
-                continue
-
-            # --------------------
-            # 没有标题的块（Type1 ValueBlock）
-            # --------------------
-            if current_title is None:
-                if ln.ltype == LineType.DELIMITER:
-                    current_lines = [ln]
-                    i += 1
-                    while i < n:
-                        current_lines.append(lines[i])
-                        if lines[i].ltype == LineType.DELIMITER:
-                            i += 1
-                            break
-                        i += 1
-                    flush_block()
-                    continue
-                else:
-                    ledger.header.append(ln)
-                    i += 1
-                    continue
-
-            # --------------------
-            # 普通内容（Block / MiniSection 内）
-            # 注意：## Summary 内的 ``` 行也走这里，交给
-            # SummaryBlock._parse_sub_segments() 负责二次解析。
-            # --------------------
-            current_lines.append(ln)
-            i += 1
-
-        # 收尾（无尾部触发行时仍需 flush）
-        flush_block()
-
-        return ledger
-
-    # --------------------
-    # 查询
-    # --------------------
-
-    def block_names(self) -> List[str]:
+    def get_segment_names(self) -> List[str]:
+        """ 获取所有分段名称 """
         return [blk.name for blk in self.segments]
 
-    def get_block(self, name: str) -> Optional[Union[BaseBlock, BaseMiniSection]]:
+    def find_segment(self, name: str) -> Optional[Union[BaseBlock, BaseMiniSection]]:
+        """ 按名称查找分段 """
         for blk in self.segments:
             if blk.name == name:
                 return blk
         return None
 
-    # --------------------
-    # 验证
-    # --------------------
+    def has_segment(self, name: str) -> bool:
+        """ 判断分段是否存在 """
+        return self.find_segment(name) is not None
+
+    def add_segment(self, segment: BaseMiniSection):
+        """ 添加新分段 """
+        self.segments.append(segment)
+
+    # ----- 验证方法 -------------------- #
 
     def validate(self) -> bool:
+        """验证所有区块"""
         return all(blk.validate() for blk in self.segments)
 
-    # --------------------
-    # 输出
-    # --------------------
+    def validate_structure(self) -> List[str]:
+        """验证账本结构，返回错误信息列表"""
+        errors = []
+        
+        # 检查重复的分段名称
+        names = self.get_segment_names()
+        if len(names) != len(set(names)):
+            errors.append("存在重复的分段名称")
+
+        # 逐个检查每个 section 的结构
+        for sec in self.segments:
+            sec_errors = sec.validate_structure()
+            errors.extend([f"section '{sec.name}': {err}" for err in sec_errors])
+        
+        # 检查 tail 是否包含必要元素
+        if self.tail:
+            tail_errors = self.tail.validate_structure()
+            errors.extend([f"tail: {err}" for err in tail_errors])
+        
+        return errors
+
+    # ----- 序列化方法 -------------------- #
 
     def to_lines(self) -> List[Line]:
-        out: List[Line] = []
-        out.extend(self.header)
+        """转换为行列表"""
+        out_lines: List[Line] = []
+        out_lines.extend(self.header)
+        
         for blk in self.segments:
-            out.extend(blk.to_lines())
+            out_lines.extend(blk.to_lines())
+            
+        if self.summary:
+            out_lines.extend(self.summary.to_lines())
+            
         if self.tail:
-            out.extend(self.tail.to_lines())
-        return out
+            out_lines.extend(self.tail.to_lines())
+            
+        return out_lines
 
     def to_raw(self) -> str:
-        return "\n".join(ln.to_raw() for ln in self.to_lines())
+        """转换为完整 Markdown 文本"""
+        lines = [ln.to_raw() for ln in self.to_lines()]
+        result = "\n".join(lines)
+        # 确保最后有换行符
+        if not result.endswith("\n"):
+            result += "\n"
+        return result
 
-    # --------------------
-    # 调试
-    # --------------------
+    def save(self, filepath: str, encoding: str = "utf-8"):
+        text = self.to_raw()
+        with open(filepath, "w", encoding=encoding) as f:
+            f.write(text)
+
+    def save_as(self, filepath: str, encoding: str = "utf-8"):
+        self.save(filepath, encoding)
+
+    # ----- Debug -------------------- #
 
     def dump(self):
-        print("=== Ledger Dump ===")
-
+        """ 打印账本结构信息 """
+        print("=== SumLedger Dump ===")
+        
         print("\n[HEAD]")
         for ln in self.header:
-            print(ln.raw)
-
-        print("[SEGMENTS]")
+            print(f"  {ln.raw}")
+        
+        print(f"\n[SEGMENTS]")
         for idx, blk in enumerate(self.segments, 1):
-            print(f"Segment {idx}: {blk.name} ({blk.__class__.__name__})")
+            print(f"  Segment {idx}: {blk.name} ({blk.__class__.__name__})")
             for ln in blk.to_lines():
-                print(ln.raw)
-
-        print("[SUMMARY]")
+                print(f"    {ln.raw}")
+        
+        print("\n[SUMMARY]")
         if self.summary:
             for ln in self.summary.to_lines():
-                print(ln.raw)
-
-        print("[TAIL]")
+                print(f"  {ln.raw}")
+        else:
+            print("  None")
+        
+        print("\n[TAIL]")
         if self.tail:
             for ln in self.tail.to_lines():
-                print(ln.raw)
+                print(f"  {ln.raw}")
+        else:
+            print("  None")
+
+    def __repr__(self):
+        return (
+            f"SumLedger(header={len(self.header)}, "
+            f"segments={len(self.segments)}, "
+            f"summary={self.summary.name if self.summary else 'None'}, "
+            f"tail={len(self.tail.lines) if self.tail else 0})"
+        )
+
+
+# ======================================== #
+#    SumLedger Parser
+# ======================================== #
+
+@dataclass
+class _SumLedgerParser:
+    lines: List[Line]
+    ledger: SumLedger = field(default_factory=SumLedger)
+    index: int = 0
+    curr_head: Optional[Line] = None
+    curr_lines: List[Line] = field(default_factory=list)
+    
+    def parse(self) -> SumLedger:
+        while self.index < len(self.lines):
+            line = self.lines[self.index]
+            
+            # 处理新分段
+            if line.ltype in (LineType.MONTH_TITLE, LineType.SUB_TITLE, LineType.SUMMARY):
+                self._finish_current_segment()
+                self._start_new_segment(line)
+                continue
+
+            # 处理尾部行
+            if line.ltype in (LineType.TIMESTAMP, LineType.EOF):
+                self._finish_current_segment()
+                self._parse_tail()
+                break
+            
+            # 处理普通行
+            self._process_normal_line(line)
+            self.index += 1
+        
+        return self.ledger
+    
+    def _process_normal_line(self, line: Line):
+        if self.curr_head is None:
+            self.ledger.header.append(line)
+        else:
+            self.curr_lines.append(line)
+
+    def _start_new_segment(self, head_line: Line):
+        self.curr_head = head_line
+        self.curr_lines = []
+        self.index += 1
+    
+    def _finish_current_segment(self):
+        if self.curr_head is None and not self.curr_lines:
+            return
+        
+        if self.curr_head is None:
+            pass
+        elif self.curr_head.ltype == LineType.SUMMARY:
+            self.ledger.summary = make_summary(self.curr_head, self.curr_lines)
+        else:
+            minisection = make_minisection(self.curr_head, self.curr_lines)
+            self.ledger.segments.append(minisection)
+        
+        # 重置状态
+        self.curr_head = None
+        self.curr_lines = []
+    
+    def _parse_tail(self):
+        tail_lines = []
+        while self.index < len(self.lines):
+            tail_lines.append(self.lines[self.index])
+            self.index += 1
+        
+        if tail_lines:
+            self.ledger.tail = make_tail_block(tail_lines)

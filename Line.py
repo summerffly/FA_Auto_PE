@@ -1,7 +1,7 @@
 # File:        Line.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-14
-# LastEdit:    2026-03-25
+# LastEdit:    2026-03-26
 # Description: Markdown行解析
 
 import re
@@ -20,11 +20,14 @@ class LineType(Enum):
     DELIMITER     = auto()
     EOF           = auto()
     TIMESTAMP     = auto()
+
     HEAD_TITLE    = auto()
     MONTH_TITLE   = auto()
     SUB_TITLE     = auto()
     SUB_TAG       = auto()
     TOTAL         = auto()
+    SUMMARY       = auto()
+
     UNIT          = auto()
     AGGR          = auto()
     MONTH_SUM     = auto()
@@ -60,13 +63,16 @@ class LineRegex:
     MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (.+)(\.M\d{2})$')
     # 分项标题
     # ## NGXP
-    SUB_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!Total$)(?!.*\.M\d{2}$)(.+)$')
+    SUB_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!Total$)(?!Summary$)(?!.*\.M\d{2}$)(.+)$')
     # 分项Tag
     # ### Apple
     SUB_TAG: ClassVar[re.Pattern] = re.compile(r'^### (.+)$')
     # 总计
     # ## Total
     TOTAL: ClassVar[re.Pattern] = re.compile(r'^## Total$')
+    # 汇总
+    # ## Summary
+    SUMMARY: ClassVar[re.Pattern] = re.compile(r'^## Summary$')
 
     # 收支条目
     # `- 50` 猫罐头
@@ -150,6 +156,9 @@ class Line:
             return
         if RE.TOTAL.match(s):
             self.ltype = LineType.TOTAL
+            return
+        if RE.SUMMARY.match(s):
+            self.ltype = LineType.SUMMARY
             return
 
         m = RE.UNIT.match(s)
@@ -237,7 +246,7 @@ class Line:
 
     @property
     def is_amount(self) -> bool:
-        """ 是否是携带金额的行 """
+        """ 是否包含金额 """
         return self.ltype in (
             LineType.UNIT, 
             LineType.AGGR, 

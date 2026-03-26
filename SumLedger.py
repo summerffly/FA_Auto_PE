@@ -57,10 +57,6 @@ class SumLedger:
                 return blk
         return None
 
-    def has_segment(self, name: str) -> bool:
-        """ 判断分段是否存在 """
-        return self.find_segment(name) is not None
-
     def add_segment(self, segment: BaseMiniSection):
         """ 添加新分段 """
         self.segments.append(segment)
@@ -71,7 +67,7 @@ class SumLedger:
         """验证所有区块"""
         return all(blk.validate() for blk in self.segments)
 
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         """验证账本结构，返回错误信息列表"""
         errors = []
         
@@ -82,12 +78,12 @@ class SumLedger:
 
         # 逐个检查每个 section 的结构
         for sec in self.segments:
-            sec_errors = sec.validate_structure()
+            sec_errors = sec.validate_struct()
             errors.extend([f"section '{sec.name}': {err}" for err in sec_errors])
         
         # 检查 tail 是否包含必要元素
         if self.tail:
-            tail_errors = self.tail.validate_structure()
+            tail_errors = self.tail.validate_struct()
             errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
@@ -100,14 +96,14 @@ class SumLedger:
         out_lines.extend(self.header)
         
         for blk in self.segments:
-            out_lines.extend(blk.to_lines())
+            out_lines.extend(blk.lines)
             
         if self.summary:
             out_lines.extend(self.summary.to_lines())
             
         if self.tail:
-            out_lines.extend(self.tail.to_lines())
-            
+            out_lines.extend(self.tail.lines)
+        
         return out_lines
 
     def to_raw(self) -> str:
@@ -140,7 +136,7 @@ class SumLedger:
         print(f"\n[SEGMENTS]")
         for idx, blk in enumerate(self.segments, 1):
             print(f"  Segment {idx}: {blk.name} ({blk.__class__.__name__})")
-            for ln in blk.to_lines():
+            for ln in blk.lines:
                 print(f"    {ln.raw}")
         
         print("\n[SUMMARY]")
@@ -152,7 +148,7 @@ class SumLedger:
         
         print("\n[TAIL]")
         if self.tail:
-            for ln in self.tail.to_lines():
+            for ln in self.tail.lines:
                 print(f"  {ln.raw}")
         else:
             print("  None")

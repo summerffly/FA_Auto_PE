@@ -82,7 +82,7 @@ class BaseSection(ABC):
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         raise NotImplementedError
 
     @abstractmethod
@@ -96,6 +96,10 @@ class BaseSection(ABC):
     @abstractmethod
     def validate_summary(self) -> bool:
         raise NotImplementedError
+    
+    @abstractmethod
+    def get_summary(self) -> int:
+        raise NotImplementedError
 
 
 # ======================================== #
@@ -104,7 +108,7 @@ class BaseSection(ABC):
 
 @dataclass
 class LifeSection(BaseSection):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
         if len(self.summary_lines) != 3:
             errors.append(f"包含 {len(self.summary_lines)} SummaryLines")
@@ -167,6 +171,10 @@ class LifeSection(BaseSection):
             expense_line.value == expense and
             balance_line.value == balance
         )
+    
+    def get_summary(self) -> int:
+        balance_line = self.find_summary_line("结余")
+        return balance_line.value if balance_line else 0
 
     def __repr__(self):
         return (
@@ -183,7 +191,7 @@ class LifeSection(BaseSection):
 
 @dataclass
 class MonthSection(BaseSection):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
         if len(self.summary_lines) != 1:
             errors.append(f"包含 {len(self.summary_lines)} SummaryLines")
@@ -214,6 +222,10 @@ class MonthSection(BaseSection):
             ln.ltype == LineType.TITLE_SUM and
             ln.value == self.calc_units_sum()
         )
+    
+    def get_summary(self) -> int:
+        ln = self.summary_lines[0] if self.summary_lines else None
+        return ln.value if ln and ln.ltype == LineType.TITLE_SUM else 0
 
     def __repr__(self):
         return (
@@ -230,7 +242,7 @@ class MonthSection(BaseSection):
 
 @dataclass
 class TitleSection(BaseSection):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
         if len(self.summary_lines) != 1:
             errors.append(f"包含 {len(self.summary_lines)} SummaryLines")
@@ -261,6 +273,10 @@ class TitleSection(BaseSection):
             ln.ltype == LineType.SUB_TITLE_SUM and
             ln.value == self.calc_units_sum()
         )
+
+    def get_summary(self) -> int:
+        ln = self.summary_lines[0] if self.summary_lines else None
+        return ln.value if ln and ln.ltype == LineType.SUB_TITLE_SUM else 0
 
     def __repr__(self):
         return (

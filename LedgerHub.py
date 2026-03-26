@@ -21,18 +21,18 @@ def init_ledger_hub():
     加载所有账本
     """
     load_sum_ledger("FA_SUM.md")
-    load_ledger("life", "life.M.md")
-    load_ledger("dg", "DGtler.M.md")
-    load_ledger("keep", "KEEP.M.md")
-    load_ledger("tb", "TB.M.md")
-    load_ledger("dk", "DK.md")
-    load_ledger("ns", "NS.md")
+    load_ledger("life",   "life.M.md")
+    load_ledger("dgtler", "DGtler.M.md")
+    load_ledger("keep",   "KEEP.M.md")
+    load_ledger("tb",     "TB.M.md")
+    load_ledger("dk",     "DK.md")
+    load_ledger("ns",     "NS.md")
     load_ledger("travel", "travel.md")
-    load_ledger("box", "BOX.md")
+    load_ledger("box",    "BOX.md")
 
 def validate_ledger_hub():
     if SUM_LEDGER is not None:
-        sum_errors = SUM_LEDGER.validate_structure()
+        sum_errors = SUM_LEDGER.validate_struct()
         if sum_errors:
             for error in sum_errors:
                 print(f"FA_SUM.md: {Fore.RED}[!]{Style.RESET_ALL} {error}")
@@ -40,7 +40,7 @@ def validate_ledger_hub():
             print(f"FA_SUM.md: {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
     
     for name, ledger in LEDGERS.items():
-        errors = ledger.validate_structure()
+        errors = ledger.validate_struct()
         if errors:
             for error in errors:
                 print(f"{LEDGER_FILES.get(name, name)}: {Fore.RED}[!]{Style.RESET_ALL} {error}")
@@ -115,8 +115,8 @@ def list_ledgers() -> list[str]:
     """
     返回所有账本名称
     """
-    return sorted(LEDGERS.keys())
-
+    #return sorted(LEDGERS.keys())
+    return LEDGERS.keys()
 
 def remove_ledger(name: str) -> None:
     """

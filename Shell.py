@@ -127,16 +127,15 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_ts(self, _):
-        """ts  查看所有账本的文件时间戳行"""
+        """ts"""
         def run():
             for name in hub.list_ledgers():
                 ledger = hub.get_ledger(name)
-                ts_lines = [ln for ln in ledger.tail_lines
-                            if ln.raw.startswith("*Update Time")]
-                if ts_lines:
-                    print(f"  {name:<12} {ts_lines[0].raw}")
+                timestamp = ledger.tail.timestamp
+                if timestamp:
+                    print(f"  {name:<8} {timestamp}")
                 else:
-                    print(f"  {name:<12} （无时间戳）")
+                    print(f"  {name:<8} NONE")
         self._run(run)
 
     # ----- 搜索 -------------------- #
@@ -187,39 +186,39 @@ class Shell(cmd.Cmd):
     # ----- 校验 -------------------- #
 
     def do_check(self, arg):
-        """check [账本]  校验 summary 数学正确性；不带参数则校验所有账本"""
+        """check [ledger]"""
         def run():
             parts  = _parse(arg)
             names  = [parts[0]] if parts else hub.list_ledgers()
             ok_all = True
             for name in names:
                 ledger = hub.get_ledger(name)
-                for sec in ledger.sections:
-                    ok = sec.validate_summary()
-                    flag = "OK" if ok else "FAIL"
+                for seg in ledger.segments:
+                    ok = seg.validate_summary()
+                    flag = f"{Fore.GREEN}OK{Style.RESET_ALL}" if ok else f"{Fore.RED}FAIL{Style.RESET_ALL}"
                     if not ok:
                         ok_all = False
-                    print(f"  [{flag}] {name} / {sec.name}")
+                    print(f"  [{flag}] {name} / {seg.name}")
             if ok_all:
-                print("  全部校验通过。")
+                print("  全部校验通过")
         self._run(run)
 
     # ----- 汇总重建 -------------------- #
 
     def do_rebuild(self, arg):
-        """rebuild [账本]  重建所有 summary；不带参数则重建所有账本"""
+        """rebuild [ledger]"""
         def run():
             parts = _parse(arg)
             names = [parts[0]] if parts else hub.list_ledgers()
             for name in names:
-                hub.get_ledger(name).rebuild_all_summaries()
+                hub.get_ledger(name).rebuild_ledger()
                 print(f"  {name} 重建完成")
         self._run(run)
 
     # ----- 保存 -------------------- #
 
     def do_save(self, arg):
-        """save [账本]  保存到原文件；不带参数则保存所有账本"""
+        """save [ledger]"""
         def run():
             parts = _parse(arg)
             if parts:
@@ -233,7 +232,7 @@ class Shell(cmd.Cmd):
     # ----- 重载 -------------------- #
 
     def do_reload(self, arg):
-        """reload [账本]  从磁盘重新加载；不带参数则重载所有账本"""
+        """reload [ledger]"""
         def run():
             parts = _parse(arg)
             if parts:
@@ -246,22 +245,22 @@ class Shell(cmd.Cmd):
 
     # ----- 测试入口 -------------------- #
 
-    def do_test(self, arg):
-        """test <sum|life|dg|dk>"""
+    def do_dump(self, arg):
+        """dump [ledger]"""
         def run():
             parts = _parse(arg)
-            _require(parts, 1, "test <sum|life|dg|dk>")
-            target = parts[0].lower()
-            if target == "sum":
-                engine.test_sum()
-            elif target == "life":
-                engine.test_life()
-            elif target == "dg":
-                engine.test_dgtler()
-            elif target == "dk":
-                engine.test_dk()
-            else:
-                raise ValueError(f"未知测试目标: {target}，可选 life / dg / dk")
+            if parts and parts[0] == "sum":
+                hub.get_sum_ledger().dump()
+            elif parts:
+                hub.get_ledger(parts[0]).dump()
+        self._run(run)
+
+    def do_repr(self, arg):
+        """repr [ledger]"""
+        def run():
+            parts = _parse(arg)
+            if parts:
+                print(hub.get_ledger(parts[0]).__repr__())
         self._run(run)
 
     # ----- 退出 -------------------- #

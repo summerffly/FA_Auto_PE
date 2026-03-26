@@ -32,18 +32,14 @@ class BaseMiniSection(ABC):
         if m:
             return "Total"
 
-    def to_lines(self) -> List[Line]:
-        out_lines = []
-        if self.head_line:
-            out_lines.append(self.head_line)
-        out_lines.extend(self.summary_lines)
-        return out_lines
-
+    @property
+    def lines(self) -> List[Line]:
+        return [self.head_line] + self.summary_lines
 
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         raise NotImplementedError
 
 
@@ -53,7 +49,7 @@ class BaseMiniSection(ABC):
 
 @dataclass
 class MonthMiniSection(BaseMiniSection):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
         sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.MONTH_SUM)
         if sum_line_count != 3:
@@ -103,7 +99,7 @@ class MonthMiniSection(BaseMiniSection):
 
 @dataclass
 class TitleMiniSection(BaseMiniSection):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
         sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.TITLE_SUM)
         if sum_line_count != 1:
@@ -132,7 +128,7 @@ class TitleMiniSection(BaseMiniSection):
 # ======================================== #
 @dataclass
 class TotalMiniSection(BaseMiniSection):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
         sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.TOTAL_SUM)
         delimiter_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.DELIMITER)

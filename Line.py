@@ -140,6 +140,7 @@ class Line:
             return
         if RE.TIMESTAMP.match(s):
             self.ltype = LineType.TIMESTAMP
+            self.content = RE.TIMESTAMP.match(s).group(1)
             return
 
         if RE.HEAD_TITLE.match(s):

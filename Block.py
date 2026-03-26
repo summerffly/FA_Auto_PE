@@ -16,17 +16,16 @@ from Line import Line, LineType
 
 @dataclass
 class BaseBlock(ABC):
-    lines: List[Line] = field(default_factory=list)
+    block_lines: List[Line] = field(default_factory=list)
 
-    def to_lines(self) -> List[Line]:
-        out_lines = []
-        out_lines.extend(self.lines)
-        return out_lines
+    @property
+    def lines(self) -> List[Line]:
+        return self.block_lines
 
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         raise NotImplementedError
 
 
@@ -36,19 +35,19 @@ class BaseBlock(ABC):
 
 @dataclass
 class TailBlock(BaseBlock):
-    def validate_structure(self) -> List[str]:
+    def validate_struct(self) -> List[str]:
         errors = []
-        timestamp_line_cnt = [ln for ln in self.lines if ln.ltype == LineType.TIMESTAMP]
-        eof_line_cnt = [ln for ln in self.lines if ln.ltype == LineType.EOF]
+        timestamp_line_cnt = [ln for ln in self.block_lines if ln.ltype == LineType.TIMESTAMP]
+        eof_line_cnt = [ln for ln in self.block_lines if ln.ltype == LineType.EOF]
         if len(timestamp_line_cnt) != 1:
-            errors.append(f"尾部应该有1个TIMESTAMP行 实际有 {len(timestamp_line_cnt)} 个")
+            errors.append(f"包含 {timestamp_line_cnt} Timestamp")
         if len(eof_line_cnt) != 1:
-            errors.append(f"尾部应该有1个EOF行 实际有 {len(eof_line_cnt)} 个")
+            errors.append(f"包含 {timestamp_line_cnt} EOF")
         return errors
     
     @property
     def timestamp_line(self) -> Optional[Line]:
-        for ln in self.lines:
+        for ln in self.block_lines:
             if ln.ltype == LineType.TIMESTAMP:
                 return ln
         return None
@@ -62,4 +61,4 @@ class TailBlock(BaseBlock):
 # ----- Block Factory -------------------- #
 
 def make_tail_block(lines: List[Line]) -> TailBlock:
-    return TailBlock(lines=lines)
+    return TailBlock(block_lines=lines)

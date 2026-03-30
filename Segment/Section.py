@@ -23,11 +23,14 @@ class BaseSection(ABC):
     body_lines: List[Line] = field(default_factory=list)
 
     def __post_init__(self):
-        if self.head_line.ltype != LineType.MONTH_TITLE and self.head_line.ltype != LineType.SUB_TAG:
+        if self.head_line.ltype != LineType.LIFE_TITLE and self.head_line.ltype != LineType.MONTH_TITLE and self.head_line.ltype != LineType.SUB_TAG:
             raise ValueError("Section.head_line 必须是 MONTH_TITLE 或 SUB_TAG 类型")
 
     @property
     def name(self) -> str:
+        m = RE.LIFE_TITLE.match(self.head_line.raw)
+        if m:
+            return "life" + m.group(1)
         m = RE.MONTH_TITLE.match(self.head_line.raw)
         if m:
             return m.group(1) + m.group(2)
@@ -294,10 +297,10 @@ def make_section(headline: Line, lines: List[Line]) -> BaseSection:
     ltype = headline.ltype
     section = None
 
-    if ltype == LineType.MONTH_TITLE and "life" in raw:
+    if ltype == LineType.LIFE_TITLE:
         # LifeSection
         section = LifeSection(head_line=headline)
-    elif ltype == LineType.MONTH_TITLE and "life" not in raw:
+    elif ltype == LineType.MONTH_TITLE:
         # MonthSection
         section = MonthSection(head_line=headline)
     elif ltype == LineType.SUB_TAG:

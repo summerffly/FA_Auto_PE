@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
-import LedgerHub as hub
 from Shell import Shell
 from colorama import Fore, Style
 
+import LedgerHub as hub
+
 
 VERSION = "Alpha"
-DATE = "2026-03-26"
-
+DATE = "2026-03-30"
 banner = rf"""
 --------------------------------------------------
-      ____   __         __    _    _____  ___  
-     | |_   / /\       / /\  | | |  | |  / / \ 
-     |_|   /_/--\     /_/--\ \_\_/  |_|  \_\_/ 
-     
+     ____   __         __    _    _____  ___
+    | |_   / /\       / /\  | | |  | |  / / \
+    |_|   /_/--\     /_/--\ \_\_/  |_|  \_\_/
+
 --------------------------------------------------
     Version: {Fore.CYAN}{VERSION}{Style.RESET_ALL}
     Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}

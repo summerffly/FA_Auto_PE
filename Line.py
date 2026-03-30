@@ -1,11 +1,10 @@
 # File:        Line.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-14
-# LastEdit:    2026-03-26
+# LastEdit:    2026-03-29
 # Description: Markdown行解析
 
 import re
-from datetime import datetime
 from enum import Enum, auto
 from dataclasses import dataclass
 from typing import ClassVar
@@ -22,6 +21,7 @@ class LineType(Enum):
     TIMESTAMP     = auto()
 
     HEAD_TITLE    = auto()
+    LIFE_TITLE    = auto()
     MONTH_TITLE   = auto()
     SUB_TITLE     = auto()
     SUB_TAG       = auto()
@@ -59,8 +59,11 @@ class LineRegex:
     # # DGtler.Month
     HEAD_TITLE: ClassVar[re.Pattern] = re.compile(r'^# (.+)$')
     # 月度标题
+    # ## life.M03
+    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## life(\.M\d{2})$')
+    # 分月标题
     # ## DGtler.M03
-    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (.+)(\.M\d{2})$')
+    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+)(\.M\d{2})$')
     # 分项标题
     # ## NGXP
     SUB_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!Total$)(?!Summary$)(?!.*\.M\d{2}$)(.+)$')
@@ -70,14 +73,14 @@ class LineRegex:
     # 总计
     # ## Total
     TOTAL: ClassVar[re.Pattern] = re.compile(r'^## Total$')
-    # 汇总
+    # 总账
     # ## Summary
     SUMMARY: ClassVar[re.Pattern] = re.compile(r'^## Summary$')
 
     # 收支条目
     # `- 50` 猫罐头
     UNIT: ClassVar[re.Pattern] = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
-    # 聚合金额
+    # 总账金额
     # 币安货币 : +80000
     AGGR: ClassVar[re.Pattern] = re.compile(r'^(?!Total)(?!>)(.+) : ([+-])(\d+)$')
     # 月度汇总金额
@@ -145,6 +148,9 @@ class Line:
 
         if RE.HEAD_TITLE.match(s):
             self.ltype = LineType.HEAD_TITLE
+            return
+        if RE.LIFE_TITLE.match(s):
+            self.ltype = LineType.LIFE_TITLE
             return
         if RE.MONTH_TITLE.match(s):
             self.ltype = LineType.MONTH_TITLE
@@ -234,8 +240,7 @@ class Line:
             return f"Total : {sign}{abs(self.value)}"
         
         if self.ltype == LineType.TIMESTAMP:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            return f"*Update Time : {now}*"
+            return f"*Update Time : {self.content}*"
         
         if self.ltype == LineType.BLANK:
             return ""

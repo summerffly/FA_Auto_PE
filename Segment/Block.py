@@ -6,6 +6,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import List, Optional
 from Line import Line, LineType
 
@@ -56,6 +57,11 @@ class TailBlock(BaseBlock):
     def timestamp(self) -> str:
         ln = self.timestamp_line
         return ln.content.strip() if ln else ""
+    
+    def update_timestamp(self):
+        ln = self.timestamp_line
+        if ln:
+            ln.content = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 # ----- Block Factory -------------------- #

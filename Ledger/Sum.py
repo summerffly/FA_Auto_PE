@@ -1,17 +1,19 @@
 # File:        SumLedger.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-26
+# LastEdit:    2026-03-29
 # Description: 汇总账本对象
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 from colorama import Fore, Style
+
 from Line import Line, LineType
-from Line import LineRegex as RE
-from MiniSection import BaseMiniSection, make_minisection
-from Summary import SummarySection, make_summary
-from Block import BaseBlock, TailBlock, make_tail_block
+from Segment import (
+    BaseMiniSection, make_minisection, 
+    SummarySection, make_summary, 
+    BaseBlock, TailBlock, make_tail_block
+)
 
 
 # ======================================== #
@@ -67,6 +69,41 @@ class SumLedger:
         """验证所有区块"""
         return all(blk.validate() for blk in self.segments)
 
+    # ----- 序列化方法 -------------------- #
+
+    def update_timestamp(self):
+        if self.tail:
+            self.tail.update_timestamp()
+
+    def to_lines(self) -> List[Line]:
+        all_lines: List[Line] = []
+        all_lines.extend(self.header)
+        for seg in self.segments:
+            all_lines.extend(seg.lines)
+        if self.summary:
+            all_lines.extend(self.summary.to_lines())
+        if self.tail:
+            all_lines.extend(self.tail.lines)
+        return all_lines
+
+    def to_raw(self) -> str:
+        lines = self.to_lines()
+        raw_lines = [ln.to_raw() for ln in lines]
+        raw_text = "\n".join(raw_lines)
+        if not raw_text.endswith("\n"):
+            raw_text += "\n"
+        return raw_text
+
+    def save(self, filepath: str, encoding: str = "utf-8"):
+        text = self.to_raw()
+        with open(filepath, "w", encoding=encoding) as f:
+            f.write(text)
+
+    def save_as(self, filepath: str, encoding: str = "utf-8"):
+        self.save(filepath, encoding)
+
+    # ----- Debug -------------------- #
+
     def validate_struct(self) -> List[str]:
         """验证账本结构，返回错误信息列表"""
         errors = []
@@ -87,43 +124,6 @@ class SumLedger:
             errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
-
-    # ----- 序列化方法 -------------------- #
-
-    def to_lines(self) -> List[Line]:
-        """转换为行列表"""
-        out_lines: List[Line] = []
-        out_lines.extend(self.header)
-        
-        for blk in self.segments:
-            out_lines.extend(blk.lines)
-            
-        if self.summary:
-            out_lines.extend(self.summary.to_lines())
-            
-        if self.tail:
-            out_lines.extend(self.tail.lines)
-        
-        return out_lines
-
-    def to_raw(self) -> str:
-        """转换为完整 Markdown 文本"""
-        lines = [ln.to_raw() for ln in self.to_lines()]
-        result = "\n".join(lines)
-        # 确保最后有换行符
-        if not result.endswith("\n"):
-            result += "\n"
-        return result
-
-    def save(self, filepath: str, encoding: str = "utf-8"):
-        text = self.to_raw()
-        with open(filepath, "w", encoding=encoding) as f:
-            f.write(text)
-
-    def save_as(self, filepath: str, encoding: str = "utf-8"):
-        self.save(filepath, encoding)
-
-    # ----- Debug -------------------- #
 
     def dump(self):
         """ 打印账本结构信息 """

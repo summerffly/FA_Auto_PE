@@ -1,61 +1,135 @@
-# File:        Ledger.py
+# File:        Ledger/Base.py
 # Author:      summer@SummerStudio
-# CreateDate:  2026-03-22
-# LastEdit:    2026-03-27
-# Description: 独立账本对象
+# CreateDate:  2026-03-30
+# LastEdit:    2026-03-30
+# Description: Ledger抽象基类
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional
 from colorama import Fore, Style
+
 from Line import Line, LineType
-from Section import BaseSection, make_section
-from MiniSection import BaseMiniSection, make_minisection
-from Block import TailBlock, make_tail_block
+from Segment import (
+    BaseSection, 
+    BaseMiniSection, 
+    TailBlock, make_tail_block
+)
 
 
 # ======================================== #
-#    Ledger
+#    BaseLedger
 # ======================================== #
 
 @dataclass
-class Ledger:
+class BaseLedger(ABC):
     header: List[Line] = field(default_factory=list)
     segments: List[BaseSection] = field(default_factory=list)
     total: Optional[BaseMiniSection] = None
     tail: Optional[TailBlock] = None
 
-    # ----- 解析方法 -------------------- #
+    # ----- 工厂方法 -------------------- #
 
     @classmethod
-    def parse_file(cls, filepath: str, encoding: str = "utf-8") -> "Ledger":
+    def parse_file(cls, filepath: str, encoding: str = "utf-8") -> "BaseLedger":
+        """ 从文件解析账本 """
         with open(filepath, "r", encoding=encoding) as f:
             text = f.read()
         return cls.parse_text(text)
 
     @classmethod
-    def parse_text(cls, text: str) -> "Ledger":
+    def parse_text(cls, text: str) -> "BaseLedger":
+        """ 从文本解析账本 """
         raw_lines = text.splitlines()
         lines = [Line.parse(raw) for raw in raw_lines]
         return cls.parse_lines(lines)
-    
+
     @classmethod
-    def parse_lines(cls, lines: List[Line]) -> "Ledger":
-        parser = _LedgerParser(lines)
+    def parse_lines(cls, lines: List[Line]) -> "BaseLedger":
+        """ 从Line对象列表解析账本 """
+        parser = cls._create_parser(lines)
         return parser.parse()
+
+    @classmethod
+    @abstractmethod
+    def _create_parser(cls, lines: List[Line]) -> "_LedgerParser":
+        """ 创建本类型解析器 """
+        raise NotImplementedError
 
     # ----- 数据访问方法 -------------------- #
 
     @property
     def segment_names(self) -> List[str]:
+        """ 获取所有分段名称 """
         return [seg.name for seg in self.segments]
 
     def get_segment(self, name: str) -> Optional[BaseSection]:
+        """ 获取指定分段 """
         for seg in self.segments:
             if seg.name == name:
                 return seg
         return None
-    
-    def get_all_lines(self) -> List[Line]:
+
+    def get_segment_line(self, name: str, key: str) -> Optional[Line]:
+        """ 获取指定分段+行 """
+        seg = self.get_segment(name)
+        if seg is None:
+            return None
+        
+        for ln in seg.body_lines:
+            if ln.ltype == LineType.UNIT and ln.key == key:
+                return ln
+        return None
+
+    def mod_segment_line(self, name: str, key: str, new_value: int) -> bool:
+        """ 修改指定分段+行 """
+        ln = self.get_segment_line(name, key)
+        if ln is None:
+            return False
+        ln.value = new_value
+        return True
+
+    # ----- 汇总操作 -------------------- #
+
+    def rebuild_segment_summary(self, name: str):
+        """ 重建指定分段汇总 """
+        seg = self.get_segment(name)
+        if seg is None:
+            raise ValueError(f"segment 不存在: {name}")
+        seg.rebuild_summary()
+
+    def validate_segment_summary(self, name: str) -> bool:
+        """ 验证指定分段汇总 """
+        seg = self.get_segment(name)
+        if seg is None:
+            raise ValueError(f"segment 不存在: {name}")
+        return seg.validate_summary()
+
+    def validate_all_summaries(self) -> bool:
+        """ 验证所有分段汇总 """
+        return all(seg.validate_summary() for seg in self.segments)
+
+    def get_all_segments_sum(self) -> int:
+        """获取所有分段的总和"""
+        total_sum = 0
+        for seg in self.segments:
+            total_sum += seg.get_summary()
+        return total_sum
+
+    @abstractmethod
+    def rebuild_ledger(self):
+        """重建整个账本（抽象方法）"""
+        raise NotImplementedError
+
+    # ----- 序列化方法 -------------------- #
+
+    def update_timestamp(self):
+        """更新时间戳"""
+        if self.tail:
+            self.tail.update_timestamp()
+
+    def to_lines(self) -> List[Line]:
+        """转换为Line对象列表"""
         all_lines: List[Line] = []
         all_lines.extend(self.header)
         for seg in self.segments:
@@ -66,108 +140,57 @@ class Ledger:
             all_lines.extend(self.tail.lines)
         return all_lines
 
-    # ----- 汇总操作 -------------------- #
+    def to_raw(self) -> str:
+        """转换为原始文本"""
+        lines = self.to_lines()
+        raw_lines = [ln.to_raw() for ln in lines]
+        raw_text = "\n".join(raw_lines)
+        if not raw_text.endswith("\n"):
+            raw_text += "\n"
+        return raw_text
 
-    def rebuild_segment_summary(self, name: str):
-        seg = self.get_segment(name)
-        if seg is None:
-            raise ValueError(f"section 不存在: {name}")
-        seg.rebuild_summary()
+    def save(self, filepath: str, encoding: str = "utf-8"):
+        """保存到文件"""
+        text = self.to_raw()
+        with open(filepath, "w", encoding=encoding) as f:
+            f.write(text)
 
-    def validate_segment_summary(self, name: str) -> bool:
-        seg = self.get_segment(name)
-        if seg is None:
-            raise ValueError(f"segment 不存在: {name}")
-        return seg.validate_summary()
+    def save_as(self, filepath: str, encoding: str = "utf-8"):
+        """另存为文件"""
+        self.save(filepath, encoding)
 
-    def validate_all_summaries(self) -> bool:
-        return all(seg.validate_summary() for seg in self.segments)
+    # ----- 验证和调试 -------------------- #
 
     def validate_struct(self) -> List[str]:
+        """验证账本结构"""
         errors = []
         
+        # 检查重复的Segment名称
         names = self.segment_names
         if len(names) != len(set(names)):
-            errors.append("存在重复 Segment")
+            errors.append("存在重复Segment")
 
+        # 验证每个分段
         for seg in self.segments:
             seg_errors = seg.validate_struct()
             errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
 
+        # 验证总计
         if self.total:
             total_errors = self.total.validate_struct()
             errors.extend([f"total: {err}" for err in total_errors])
         
+        # 验证尾部
         if self.tail:
             tail_errors = self.tail.validate_struct()
             errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
 
-    def rebuild_total(self):
-        if self.total is None:
-            return None
-        
-        total_sum = 0
-        for sec in self.segments:
-            segment_sum = sec.get_summary()
-            total_sum += segment_sum
-
-        self.total.set_value(total_sum)
-
-    def rebuild_ledger(self):
-        for seg in self.segments:
-            seg.rebuild_summary()
-        if self.total:
-            self.rebuild_total()
-
-    def get_total_value(self) -> Optional[int]:
-        if self.total is None:
-            return None
-        else:
-            return self.total.value
-
-    def get_all_sections_sum(self) -> int:
-        total_sum = 0
-        for seg in self.segments:
-            total_sum += seg.get_summary()
-        return total_sum
-
-    def validate_total(self) -> bool:
-        if self.total is None:
-            return True
-        
-        total_value = self.get_total_value()
-        if total_value is None:
-            return False
-        
-        all_sections_sum = self.get_all_sections_sum()
-        return total_value == all_sections_sum
-
-    # ----- 序列化方法 -------------------- #
-
-    def to_raw_lines(self) -> List[str]:
-        return [ln.to_raw() for ln in self.get_all_lines()]
-
-    def to_raw(self) -> str:
-        lines = self.to_raw_lines()
-        result = "\n".join(lines)
-        if not result.endswith("\n"):
-            result += "\n"
-        return result
-
-    def save(self, filepath: str, encoding: str = "utf-8"):
-        text = self.to_raw()
-        with open(filepath, "w", encoding=encoding) as f:
-            f.write(text)
-
-    def save_as(self, filepath: str, encoding: str = "utf-8"):
-        self.save(filepath, encoding)
-
-    # ----- Dump -------------------- #
-
     def dump(self):
+        """打印账本结构"""
         print("=== Ledger Dump ===")
+        print(f"Type     : {self.__class__.__name__}")
         print(f"header   : {len(self.header)}")
         print(f"segments : {len(self.segments)}")
         if self.total:
@@ -192,7 +215,8 @@ class Ledger:
 
     def __repr__(self):
         return (
-            f"Ledger(header={len(self.header)}, "
+            f"{self.__class__.__name__}("
+            f"header={len(self.header)}, "
             f"segments={len(self.segments)}, "
             f"total={self.total.name if self.total else 'None'}, "
             f"tail={len(self.tail.lines) if self.tail else 0})"
@@ -200,23 +224,24 @@ class Ledger:
 
 
 # ======================================== #
-#    Ledger Parser
+#    BaseLedger Parser
 # ======================================== #
 
 @dataclass
-class _LedgerParser:
+class _BaseLedgerParser(ABC):
     lines: List[Line]
-    ledger: Ledger = field(default_factory=Ledger)
+    ledger: BaseLedger = field(default_factory=lambda: None)
     index: int = 0
     curr_head: Optional[Line] = None
     curr_lines: List[Line] = field(default_factory=list)
     
-    def parse(self) -> Ledger:
+    def parse(self) -> BaseLedger:
+        """ 通用解析流程 """
         while self.index < len(self.lines):
             line = self.lines[self.index]
             
             # 处理新分段
-            if line.ltype in (LineType.MONTH_TITLE, LineType.SUB_TAG, LineType.TOTAL):
+            if line.ltype in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.SUB_TAG, LineType.TOTAL):
                 self._finish_current_segment()
                 self._start_new_segment(line)
                 continue
@@ -234,33 +259,25 @@ class _LedgerParser:
         return self.ledger
     
     def _process_normal_line(self, line: Line):
+        """ 处理普通行 """
         if self.curr_head is None:
             self.ledger.header.append(line)
         else:
             self.curr_lines.append(line)
 
     def _start_new_segment(self, head_line: Line):
+        """ 开始新分段 """
         self.curr_head = head_line
         self.curr_lines = []
         self.index += 1
 
+    @abstractmethod
     def _finish_current_segment(self):
-        if self.curr_head is None and not self.curr_lines:
-            return
-        
-        if self.curr_head is None:
-            pass
-        elif self.curr_head.ltype == LineType.TOTAL:
-            self.ledger.total = make_minisection(self.curr_head, self.curr_lines)
-        else:
-            section = make_section(self.curr_head, self.curr_lines)
-            self.ledger.segments.append(section)
-        
-        # 重置状态
-        self.curr_head = None
-        self.curr_lines = []
+        """ 结束当前分段 """
+        raise NotImplementedError
 
     def _parse_tail(self):
+        """ 解析尾部 """
         tail_lines = []
         while self.index < len(self.lines):
             tail_lines.append(self.lines[self.index])

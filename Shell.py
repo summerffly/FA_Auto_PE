@@ -7,8 +7,9 @@
 import cmd
 import shlex
 from colorama import Fore, Style
+
 import LedgerHub as hub
-import Engine as engine
+#import Engine as engine
 
 
 # ----- 工具函数 -------------------- #
@@ -28,7 +29,7 @@ def _require(parts: list[str], n: int, usage: str):
 
 
 def _print_section_summary(ledger, sec_name: str):
-    sec = ledger.get_section(sec_name)
+    sec = ledger.get_segment(sec_name)
     if sec is None:
         print(f"  [!] 找不到区间: {sec_name}")
         return
@@ -40,7 +41,7 @@ def _print_section_summary(ledger, sec_name: str):
 def _print_ledger_summary(name: str):
     ledger = hub.get_ledger(name)
     print(f"\n── {name} ──")
-    for sec in ledger.sections:
+    for sec in ledger.segments:
         total = sec.calc_units_sum()
         sign  = "+" if total >= 0 else ""
         print(f"  {sec.name:<20} {sign}{total}")
@@ -85,7 +86,7 @@ class Shell(cmd.Cmd):
                 return
             for name in names:
                 ledger = hub.get_ledger(name)
-                print(f"  {name:<12} {len(ledger.sections)} 个区间")
+                print(f"  {name:<12} {len(ledger.segments)} 个区间")
         self._run(run)
 
     def do_show(self, arg):
@@ -99,11 +100,11 @@ class Shell(cmd.Cmd):
                 # 显示全部
                 print(ledger.to_raw())
             else:
-                # 显示指定 section
-                sec = ledger.get_section(parts[1])
-                if sec is None:
+                # 显示指定 segment
+                seg = ledger.get_segment(parts[1])
+                if seg is None:
                     raise ValueError(f"找不到区间: {parts[1]}")
-                print(sec.to_raw())
+                print(seg.to_raw())
         self._run(run)
 
     def do_summary(self, arg):
@@ -165,7 +166,7 @@ class Shell(cmd.Cmd):
                 parts[0], parts[1], parts[2], parts[3], parts[4]
             )
             ledger = hub.get_ledger(ledger_name)
-            sec    = ledger.get_section(sec_name)
+            sec    = ledger.get_segment(sec_name)
             if sec is None:
                 raise ValueError(f"找不到区间: {sec_name}")
             idx = int(idx_s)

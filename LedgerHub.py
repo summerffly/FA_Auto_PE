@@ -1,11 +1,12 @@
 # File:        LedgerHub.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-23
-# LastEdit:    2026-03-30
+# LastEdit:    2026-03-31
 # Description: 所有账本合集
 
 from __future__ import annotations
-from typing import Dict, Optional, Union
+from dataclasses import dataclass
+from typing import Dict, Optional
 from colorama import Fore, Style
 
 from Ledger import (
@@ -17,205 +18,194 @@ from Ledger import (
     create_ledger_from_file
 )
 
-SUM_LEDGER: Optional[SumLedger] = None
-LEDGERS: Dict[str, BaseLedger] = {}
-LEDGER_FILES: Dict[str, str] = {}
 
-def init_ledger_hub():
-    """
-    初始化LedgerHub
-    加载所有账本（使用新的工厂函数）
-    """
-    load_sum_ledger("FA_SUM.md")
-    load_ledger("life",   "life.M.md")
-    load_ledger("dgtler", "DGtler.M.md")
-    load_ledger("keep",   "KEEP.M.md")
-    load_ledger("tb",     "TB.M.md")
-    load_ledger("dk",     "DK.md")
-    load_ledger("ns",     "NS.md")
-    load_ledger("travel", "travel.md")
-    load_ledger("box",    "BOX.md")
+# ======================================== #
+#    LedgerEntry
+# ======================================== #
 
-def validate_ledger_hub():
-    """验证所有账本结构"""
-    if SUM_LEDGER is not None:
-        sum_errors = SUM_LEDGER.validate_struct()
-        if sum_errors:
-            for error in sum_errors:
-                print(f"FA_SUM.md: {Fore.RED}[!]{Style.RESET_ALL} {error}")
+@dataclass
+class LedgerEntry:
+    alias:    str                    # 快捷命令
+    name:     str                    # 正式名称
+    filepath: str                    # 文件路径
+    ledger:   Optional[BaseLedger]   # 账本对象
+
+
+# ======================================== #
+#    LedgerHub
+# ======================================== #
+
+class LedgerHub:
+
+    # 账本注册表
+    # 顺序即加载顺序
+    _SUM_REGISTRY = ("sum", "FA_SUM", "FA_SUM.md")
+    _REGISTRY = [
+        ("life",   "life.M",   "life.M.md"),
+        ("dgtler", "DGtler.M", "DGtler.M.md"),
+        ("keep",   "KEEP.M",   "KEEP.M.md"),
+        ("tb",     "TB.M",     "TB.M.md"),
+        ("dk",     "DK",       "DK.md"),
+        ("ns",     "NS",       "NS.md"),
+        ("travel", "travel",   "travel.md"),
+        ("box",    "BOX",      "BOX.md"),
+    ]
+
+    def __init__(self):
+        self._sum_entry:   Optional[LedgerEntry] = None
+        self._entries:     Dict[str, LedgerEntry] = {}
+        self._initialized: bool = False
+
+    # ----- 初始化 -------------------- #
+
+    def init(self):
+        if self._initialized:
+            return
+        self._load_all()
+        self._initialized = True
+
+    def _load_all(self):
+        """按注册表加载所有账本文件"""
+        alias, name, filepath = self._SUM_REGISTRY
+        self.load_sum_ledger(alias, name, filepath)
+
+        for alias, name, filepath in self._REGISTRY:
+            self.load_ledger(alias, name, filepath)
+
+    # ----- 加载 -------------------- #
+
+    def load_sum_ledger(self, alias: str, name: str, filepath: str) -> SumLedger:
+        ledger = SumLedger.parse_file(filepath)
+        self._sum_entry = LedgerEntry(alias=alias, name=name, filepath=filepath, ledger=ledger)
+        print(f"Load Ledger:  {alias:<8} {name:<10} SumLedger")
+        return ledger
+
+    def load_ledger(self, alias: str, name: str, filepath: str) -> BaseLedger:
+        ledger = create_ledger_from_file(filepath)
+        entry  = LedgerEntry(alias=alias, name=name, filepath=filepath, ledger=ledger)
+        self._entries[alias] = entry
+
+        if isinstance(ledger, LifeLedger):
+            print(f"Load Ledger:  {alias:<8} {name:<10} LifeLedger")
+        elif isinstance(ledger, MonthLedger):
+            print(f"Load Ledger:  {alias:<8} {name:<10} MonthLedger")
+        elif isinstance(ledger, TitleLedger):
+            print(f"Load Ledger:  {alias:<8} {name:<10} TitleLedger")
         else:
-            print(f"FA_SUM.md: {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
-    
-    for name, ledger in LEDGERS.items():
-        errors = ledger.validate_struct()
-        if errors:
-            for error in errors:
-                print(f"{LEDGER_FILES.get(name, name)}: {Fore.RED}[!]{Style.RESET_ALL} {error}")
-        else:
-            print(f"{LEDGER_FILES.get(name, name)}: {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
+            print(f"Load Ledger:  {alias:<8} {name:<10} Unknown Ledger")
 
-def register_ledger(name: str, ledger: BaseLedger, filepath: str | None = None) -> None:
-    """
-    注册一个已解析好的账本对象。
-    """
-    LEDGERS[name] = ledger
-    if isinstance(ledger, LifeLedger):
-        print(f"注册账本: {name} (LifeLedger)")
-    elif isinstance(ledger, MonthLedger):
-        print(f"注册账本: {name} (MonthLedger)")
-    elif isinstance(ledger, TitleLedger):
-        print(f"注册账本: {name} (TitleLedger)")
-    else:
-        print(f"注册账本: {name} (未知类型)")
-    if filepath is not None:
-        LEDGER_FILES[name] = filepath
+        return ledger
 
-def load_ledger(name: str, filepath: str) -> BaseLedger:
-    """
-    从文件加载账本（使用新的工厂函数）
-    """
-    ledger = create_ledger_from_file(filepath)
-    LEDGERS[name] = ledger
-    LEDGER_FILES[name] = filepath
-    if isinstance(ledger, LifeLedger):
-        print(f"注册账本: {name} (LifeLedger)")
-    elif isinstance(ledger, MonthLedger):
-        print(f"注册账本: {name} (MonthLedger)")
-    elif isinstance(ledger, TitleLedger):
-        print(f"注册账本: {name} (TitleLedger)")
-    else:
-        print(f"注册账本: {name} (未知类型)")
-    return ledger
+    # ----- 验证 -------------------- #
 
-def load_sum_ledger(filepath: str) -> SumLedger:
-    """
-    从文件加载汇总账本
-    """
-    global SUM_LEDGER
-    ledger = SumLedger.parse_file(filepath)
-    SUM_LEDGER = ledger
-    LEDGER_FILES["sum"] = filepath
-    return ledger
+    def validate(self):
+        """验证所有账本结构"""
+        if self._sum_entry is not None:
+            errors = self._sum_entry.ledger.validate_struct()
+            label  = self._sum_entry.name
+            if errors:
+                for error in errors:
+                    print(f"{label:<10} {Fore.RED}[!]{Style.RESET_ALL} {error}")
+            else:
+                print(f"{label:<10} {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
 
-def get_ledger(name: str) -> BaseLedger:
-    """
-    获取指定账本
-    """
-    if name not in LEDGERS:
-        raise KeyError(f"账本不存在: {name}")
-    return LEDGERS[name]
+        for entry in self._entries.values():
+            errors = entry.ledger.validate_struct()
+            if errors:
+                for error in errors:
+                    print(f"{entry.name:<10} {Fore.RED}[!]{Style.RESET_ALL} {error}")
+            else:
+                print(f"{entry.name:<10} {Fore.GREEN}✓✓✓{Style.RESET_ALL}")
 
-def get_sum_ledger() -> SumLedger:
-    """
-    获取指定汇总账本
-    """
-    global SUM_LEDGER
-    if SUM_LEDGER is None:
-        raise ValueError("汇总账本未加载")
-    return SUM_LEDGER
+    # ----- 访问 -------------------- #
 
-def has_ledger(name: str) -> bool:
-    """
-    判断账本是否存在
-    """
-    return name in LEDGERS
+    def _get_any_entry(self, alias: str) -> Optional[LedgerEntry]:
+        """统一查找sum和普通账本 找不到返回None"""
+        if alias == "sum":
+            return self._sum_entry
+        return self._entries.get(alias)
 
-def has_sum_ledger() -> bool:
-    """
-    判断汇总账本是否已加载
-    """
-    return SUM_LEDGER is not None
+    def get_sum_entry(self) -> LedgerEntry:
+        entry = self._get_any_entry("sum")
+        if entry is None:
+            raise RuntimeError("汇总账本未加载")
+        return entry
 
-def list_ledgers() -> list[str]:
-    """
-    返回所有账本名称
-    """
-    return list(LEDGERS.keys())
+    def get_entry(self, alias: str) -> LedgerEntry:
+        entry = self._get_any_entry(alias)
+        if entry is None:
+            raise KeyError(f"账本不存在: {alias}")
+        return entry
 
-def remove_ledger(name: str) -> None:
-    """
-    移除指定账本
-    """
-    LEDGERS.pop(name, None)
-    LEDGER_FILES.pop(name, None)
+    def get_sum_ledger(self) -> SumLedger:
+        return self.get_sum_entry().ledger
 
-def reload_ledger(name: str) -> BaseLedger:
-    """
-    重新从磁盘加载指定账本
-    """
-    if name not in LEDGER_FILES:
-        raise KeyError(f"账本没有绑定文件路径: {name}")
+    def get_ledger(self, alias: str) -> BaseLedger:
+        return self.get_entry(alias).ledger
 
-    filepath = LEDGER_FILES[name]
-    ledger = create_ledger_from_file(filepath)
-    LEDGERS[name] = ledger
-    return ledger
+    def get_name(self, alias: str) -> str | None:
+        entry = self._get_any_entry(alias)
+        return entry.name if entry else None
 
-def reload_sum_ledger() -> SumLedger:
-    """
-    重新从磁盘加载汇总账本
-    """
-    global SUM_LEDGER
-    if "sum" not in LEDGER_FILES:
-        raise KeyError("汇总账本没有绑定文件路径")
-    
-    filepath = LEDGER_FILES["sum"]
-    ledger = SumLedger.parse_file(filepath)
-    SUM_LEDGER = ledger
-    return ledger
+    def get_filepath(self, alias: str) -> str | None:
+        entry = self._get_any_entry(alias)
+        return entry.filepath if entry else None
 
-def reload_all() -> None:
-    """
-    重新从磁盘加载所有账本
-    """
-    for name in list(LEDGER_FILES.keys()):
-        if name == "sum":
-            continue
-        reload_ledger(name)
+    def list_ledger_alias(self) -> list[str]:
+        """返回所有账本alias列表"""
+        return list(self._entries.keys())
 
-    if "sum" in LEDGER_FILES:
-        reload_sum_ledger()
+    # ----- 重载 -------------------- #
 
-def save_ledger(name: str, filepath: str | None = None) -> None:
-    """
-    保存指定账本
-    """
-    ledger = get_ledger(name)
+    def reload_sum_ledger(self) -> SumLedger:
+        if self._sum_entry is None:
+            raise RuntimeError("汇总账本未加载")
+        ledger = SumLedger.parse_file(self._sum_entry.filepath)
+        self._sum_entry.ledger = ledger
+        return ledger
 
-    if filepath is None:
-        filepath = LEDGER_FILES.get(name)
+    def reload_ledger(self, alias: str) -> BaseLedger:
+        if alias not in self._entries:
+            raise KeyError(f"账本不存在: {alias}")
+        entry  = self._entries[alias]
+        ledger = create_ledger_from_file(entry.filepath)
+        entry.ledger = ledger
+        return ledger
 
-    if not filepath:
-        raise ValueError(f"账本 {name} 没有可用的保存路径")
-    
-    ledger.refresh_timestamp()
-    ledger.save(filepath)
+    def reload_all(self):
+        if self._sum_entry is not None:
+            self.reload_sum_ledger()
+        
+        for alias in list(self._entries.keys()):
+            self.reload_ledger(alias)
 
-def save_sum_ledger(filepath: str | None = None) -> None:
-    """
-    保存汇总账本
-    """
-    global SUM_LEDGER
-    if SUM_LEDGER is None:
-        raise ValueError("汇总账本未加载")
-    
-    if filepath is None:
-        filepath = LEDGER_FILES.get("sum")
-    
-    if not filepath:
-        raise ValueError("汇总账本没有可用的保存路径")
-    
-    SUM_LEDGER.refresh_timestamp()
-    SUM_LEDGER.save(filepath)
+    # ----- 保存 -------------------- #
 
-def save_all() -> None:
-    """
-    保存所有账本
-    """
-    for name in list_ledgers():
-        if name in LEDGER_FILES:
-            LEDGERS[name].refresh_timestamp()
-            LEDGERS[name].save(LEDGER_FILES[name])
+    def save_sum_ledger(self, filepath: str | None = None):
+        if self._sum_entry is None:
+            raise RuntimeError("汇总账本未加载")
 
-    if "sum" in LEDGER_FILES:
-        save_sum_ledger()
+        target = filepath or self._sum_entry.filepath
+        if not target:
+            raise ValueError("汇总账本没有可用的保存路径")
+
+        self._sum_entry.ledger.refresh_timestamp()
+        self._sum_entry.ledger.save(target)
+
+    def save_ledger(self, alias: str, filepath: str | None = None):
+        entry = self.get_entry(alias)
+
+        target = filepath or entry.filepath
+        if not target:
+            raise ValueError(f"账本 {alias} 没有可用的保存路径")
+
+        entry.ledger.refresh_timestamp()
+        entry.ledger.save(target)
+
+    def save_all(self):
+        if self._sum_entry is not None:
+            self.save_sum_ledger()
+        
+        for entry in self._entries.values():
+            entry.ledger.refresh_timestamp()
+            entry.ledger.save(entry.filepath)

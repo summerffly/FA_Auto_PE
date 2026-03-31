@@ -154,8 +154,7 @@ class BaseLedger(LedgerMixin, ABC):
         print(f"Type     : {self.__class__.__name__}")
         print(f"header   : {len(self.header)}")
         print(f"segments : {len(self.segments)}")
-        if self.total:
-            print(f"total    : {len(self.total.lines) if self.total else 'None'}")
+        print(f"total    : {self.total.name if self.total else 'None'}")
         print(f"tail     : {len(self.tail.lines) if self.tail else 0}")
         print()
 

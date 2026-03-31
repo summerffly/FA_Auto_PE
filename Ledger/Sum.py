@@ -72,6 +72,25 @@ class SumLedger(LedgerMixin):
             seg.set_expense(expense_value)
             seg.set_balance(balance_value)
 
+    def get_segments_total(self) -> int:
+        """ 所有分段的总和 """
+        title_total = sum(seg.value for seg in self.title_segments)
+        life_total = sum(seg.balance for seg in self.life_segments)
+        return title_total + life_total
+
+    def rebuild_summary(self):
+        """ 重建 Summary 的所有计算值 """
+        if self.summary:
+            segments_total = self.get_segments_total()
+            self.summary.rebuild(segments_total)
+
+    def validate_summary(self) -> bool:
+        """ 验证 Summary 的所有计算值 """
+        if self.summary is None:
+            return True
+        segments_total = self.get_segments_total()
+        return self.summary.validate(segments_total)
+
     # ----- 验证方法 -------------------- #
 
     def validate(self) -> bool:
@@ -120,40 +139,37 @@ class SumLedger(LedgerMixin):
             errors.extend([f"tail: {err}" for err in tail_errors])
 
         return errors
-
+    
     def dump(self):
-        """ 打印账本结构信息 """
         print("=== SumLedger Dump ===")
+        print(f"Type           : {self.__class__.__name__}")
+        print(f"header         : {len(self.header)}")
+        print(f"title_segments : {len(self.title_segments)}")
+        print(f"life_segments  : {len(self.life_segments)}")
+        print(f"summary        : {self.summary.name if self.summary else 'None'}")
+        print(f"tail           : {len(self.tail.lines) if self.tail else 0}")
+        print()
 
-        print("\n[HEAD]")
-        for ln in self.header:
-            print(f"  {ln.raw}")
+        for i, seg in enumerate(self.title_segments, 1):
+            print(f"[TitleSegment {i}] {seg.name}")
+            print(f"   class     : {seg.__class__.__name__}")
+            print(f"   summaries : {len(seg.summary_lines)}")
+            print(f"   value     : {'+' if seg.value >= 0 else ''}{seg.value}")
+            print()
 
-        print("\n[TITLE SEGMENTS]")
-        for idx, blk in enumerate(self.title_segments, 1):
-            print(f"  Segment {idx}: {blk.name} ({blk.__class__.__name__})")
-            for ln in blk.lines:
-                print(f"    {ln.raw}")
+        for i, seg in enumerate(self.life_segments, 1):
+            print(f"[LifeSegment {i}] {seg.name}")
+            print(f"   class     : {seg.__class__.__name__}")
+            print(f"   summaries : {len(seg.summary_lines)}")
+            print(f"   income    : {'+' if seg.income >= 0 else ''}{seg.income}")
+            print(f"   expense   : {'+' if seg.expense >= 0 else ''}{seg.expense}")
+            print(f"   balance   : {'+' if seg.balance >= 0 else ''}{seg.balance}")
+            print()
 
-        print("\n[LIFE SEGMENTS]")
-        for idx, blk in enumerate(self.life_segments, 1):
-            print(f"  Segment {idx}: {blk.name} ({blk.__class__.__name__})")
-            for ln in blk.lines:
-                print(f"    {ln.raw}")
-
-        print("\n[SUMMARY]")
         if self.summary:
-            for ln in self.summary.to_lines():
-                print(f"  {ln.raw}")
-        else:
-            print("  None")
-
-        print("\n[TAIL]")
-        if self.tail:
-            for ln in self.tail.lines:
-                print(f"  {ln.raw}")
-        else:
-            print("  None")
+            print(f"[Summary] {self.summary.name}")
+            print(f"   lines     : {len(self.summary.lines)}")
+            print()
 
     def __repr__(self):
         return (

@@ -4,10 +4,10 @@ from Shell import Shell
 from colorama import Fore, Style
 
 import LedgerHub as hub
+import Engine as engine
+from __about__ import APP_VERSION, BUILD_DATE
 
 
-VERSION = "Alpha"
-DATE = "2026-03-30"
 banner = rf"""
 --------------------------------------------------
      ____   __         __    _    _____  ___
@@ -15,8 +15,8 @@ banner = rf"""
     |_|   /_/--\     /_/--\ \_\_/  |_|  \_\_/
 
 --------------------------------------------------
-    Version: {Fore.CYAN}{VERSION}{Style.RESET_ALL}
-    Date: {Fore.CYAN}{DATE}{Style.RESET_ALL}
+    Version: {Fore.CYAN}{APP_VERSION}{Style.RESET_ALL}
+    Date: {Fore.CYAN}{BUILD_DATE}{Style.RESET_ALL}
 --------------------------------------------------
 """
 
@@ -30,6 +30,7 @@ def main():
     try:
         hub.init_ledger_hub()
         hub.validate_ledger_hub()
+        engine.extract_month_list()
     except Exception as e:
         print(f"{Fore.RED}[!]{Style.RESET_ALL} 账本加载失败: {e}")
         return

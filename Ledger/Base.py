@@ -77,7 +77,7 @@ class BaseLedger(ABC):
             return None
         
         for ln in seg.body_lines:
-            if ln.ltype == LineType.UNIT and ln.key == key:
+            if ln.type == LineType.UNIT and key in ln.content:
                 return ln
         return None
 
@@ -123,10 +123,10 @@ class BaseLedger(ABC):
 
     # ----- 序列化方法 -------------------- #
 
-    def update_timestamp(self):
+    def refresh_timestamp(self):
         """更新时间戳"""
         if self.tail:
-            self.tail.update_timestamp()
+            self.tail.refresh_timestamp()
 
     def to_lines(self) -> List[Line]:
         """转换为Line对象列表"""
@@ -241,13 +241,13 @@ class _BaseLedgerParser(ABC):
             line = self.lines[self.index]
             
             # 处理新分段
-            if line.ltype in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.SUB_TAG, LineType.TOTAL):
+            if line.type in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.SUB_TAG, LineType.TOTAL):
                 self._finish_current_segment()
                 self._start_new_segment(line)
                 continue
 
             # 处理尾部行
-            if line.ltype in (LineType.TIMESTAMP, LineType.EOF):
+            if line.type in (LineType.TIMESTAMP, LineType.EOF):
                 self._finish_current_segment()
                 self._parse_tail()
                 break

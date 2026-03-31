@@ -59,6 +59,14 @@ def register_ledger(name: str, ledger: BaseLedger, filepath: str | None = None) 
     注册一个已解析好的账本对象。
     """
     LEDGERS[name] = ledger
+    if isinstance(ledger, LifeLedger):
+        print(f"注册账本: {name} (LifeLedger)")
+    elif isinstance(ledger, MonthLedger):
+        print(f"注册账本: {name} (MonthLedger)")
+    elif isinstance(ledger, TitleLedger):
+        print(f"注册账本: {name} (TitleLedger)")
+    else:
+        print(f"注册账本: {name} (未知类型)")
     if filepath is not None:
         LEDGER_FILES[name] = filepath
 
@@ -69,6 +77,14 @@ def load_ledger(name: str, filepath: str) -> BaseLedger:
     ledger = create_ledger_from_file(filepath)
     LEDGERS[name] = ledger
     LEDGER_FILES[name] = filepath
+    if isinstance(ledger, LifeLedger):
+        print(f"注册账本: {name} (LifeLedger)")
+    elif isinstance(ledger, MonthLedger):
+        print(f"注册账本: {name} (MonthLedger)")
+    elif isinstance(ledger, TitleLedger):
+        print(f"注册账本: {name} (TitleLedger)")
+    else:
+        print(f"注册账本: {name} (未知类型)")
     return ledger
 
 def load_sum_ledger(filepath: str) -> SumLedger:
@@ -172,7 +188,7 @@ def save_ledger(name: str, filepath: str | None = None) -> None:
     if not filepath:
         raise ValueError(f"账本 {name} 没有可用的保存路径")
     
-    ledger.update_timestamp()
+    ledger.refresh_timestamp()
     ledger.save(filepath)
 
 def save_sum_ledger(filepath: str | None = None) -> None:
@@ -189,7 +205,7 @@ def save_sum_ledger(filepath: str | None = None) -> None:
     if not filepath:
         raise ValueError("汇总账本没有可用的保存路径")
     
-    SUM_LEDGER.update_timestamp()
+    SUM_LEDGER.refresh_timestamp()
     SUM_LEDGER.save(filepath)
 
 def save_all() -> None:
@@ -198,7 +214,7 @@ def save_all() -> None:
     """
     for name in list_ledgers():
         if name in LEDGER_FILES:
-            LEDGERS[name].update_timestamp()
+            LEDGERS[name].refresh_timestamp()
             LEDGERS[name].save(LEDGER_FILES[name])
 
     if "sum" in LEDGER_FILES:

@@ -77,10 +77,10 @@ class _TitleLedgerParser(_BaseLedgerParser):
         
         if self.curr_head is None:
             pass
-        elif self.curr_head.ltype == LineType.TOTAL:
+        elif self.curr_head.type == LineType.TOTAL:
             # 总计部分
             self.ledger.total = make_minisection(self.curr_head, self.curr_lines)
-        elif self.curr_head.ltype == LineType.SUB_TAG:
+        elif self.curr_head.type == LineType.SUB_TAG:
             # 分段部分
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
@@ -88,7 +88,7 @@ class _TitleLedgerParser(_BaseLedgerParser):
                 print(f"[警告] Title账本中创建了非TitleSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Title账本中出现其他分段类型: {self.curr_head.ltype}")
+            print(f"[警告] Title账本中出现其他分段类型: {self.curr_head.type}")
             pass
         
         # 重置状态

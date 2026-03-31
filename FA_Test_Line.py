@@ -21,7 +21,7 @@ def main():
             print(f"解析错误: {e}")
             continue
 
-        print("TYPE:", line.ltype.name)
+        print("TYPE:", line.type.name)
 
         if line.is_amount:
             print("value:", line.value)

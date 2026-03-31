@@ -18,7 +18,7 @@ class UnitSection:
     lines: List[Line]
 
     def total(self) -> int:
-        return sum(x.value for x in self.lines if x.ltype == LineType.UNIT)
+        return sum(x.value for x in self.lines if x.type == LineType.UNIT)
 
 
 @dataclass
@@ -26,11 +26,11 @@ class AllocationSection:
     lines: List[Line]
 
     def total(self) -> int:
-        vals = [x.value for x in self.lines if x.ltype == LineType.AGGR]
+        vals = [x.value for x in self.lines if x.type == LineType.AGGR]
         return vals[0] if vals else 0
 
     def children_sum(self) -> int:
-        vals = [x.value for x in self.lines if x.ltype == LineType.AGGR]
+        vals = [x.value for x in self.lines if x.type == LineType.AGGR]
         return sum(vals[1:]) if len(vals) > 1 else 0
 
     def validate(self) -> bool:
@@ -89,7 +89,7 @@ class SummarySection:
         inside_delim = False
 
         for ln in self.lines:
-            if ln.ltype == LineType.DELIMITER:
+            if ln.type == LineType.DELIMITER:
                 if not inside_delim:
                     # 把之前的裸行先存起来
                     if buf:
@@ -123,12 +123,14 @@ class SummarySection:
                 alloc_idx += 1
             else:
                 # 裸行段（非空） → UnitSection
-                non_blank = [l for l in seg if l.ltype != LineType.BLANK]
+                non_blank = [l for l in seg if l.type != LineType.BLANK]
                 if non_blank:
                     self.unit_block = UnitSection(lines=seg)
 
 
-# ----- Summary Factory -------------------- #
+# ======================================== #
+#    Summary Factory
+# ======================================== #
 
 def make_summary(title_line: Line, lines: List[Line]) -> SummarySection:
     summary = SummarySection(title_line=title_line, lines=lines)

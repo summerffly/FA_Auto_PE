@@ -71,9 +71,9 @@ class SumLedger:
 
     # ----- 序列化方法 -------------------- #
 
-    def update_timestamp(self):
+    def refresh_timestamp(self):
         if self.tail:
-            self.tail.update_timestamp()
+            self.tail.refresh_timestamp()
 
     def to_lines(self) -> List[Line]:
         all_lines: List[Line] = []
@@ -179,13 +179,13 @@ class _SumLedgerParser:
             line = self.lines[self.index]
             
             # 处理新分段
-            if line.ltype in (LineType.MONTH_TITLE, LineType.SUB_TITLE, LineType.SUMMARY):
+            if line.type in (LineType.LIFE_TITLE, LineType.SUB_TITLE, LineType.SUMMARY):
                 self._finish_current_segment()
                 self._start_new_segment(line)
                 continue
 
             # 处理尾部行
-            if line.ltype in (LineType.TIMESTAMP, LineType.EOF):
+            if line.type in (LineType.TIMESTAMP, LineType.EOF):
                 self._finish_current_segment()
                 self._parse_tail()
                 break
@@ -213,7 +213,7 @@ class _SumLedgerParser:
         
         if self.curr_head is None:
             pass
-        elif self.curr_head.ltype == LineType.SUMMARY:
+        elif self.curr_head.type == LineType.SUMMARY:
             self.ledger.summary = make_summary(self.curr_head, self.curr_lines)
         else:
             minisection = make_minisection(self.curr_head, self.curr_lines)

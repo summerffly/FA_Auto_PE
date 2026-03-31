@@ -60,10 +60,10 @@ class LineRegex:
     HEAD_TITLE: ClassVar[re.Pattern] = re.compile(r'^# (.+)$')
     # 月度标题
     # ## life.M03
-    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## life(\.M\d{2})$')
+    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## life\.(M\d{2})$')
     # 分月标题
     # ## DGtler.M03
-    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+)(\.M\d{2})$')
+    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+)\.(M\d{2})$')
     # 分项标题
     # ## NGXP
     SUB_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!Total$)(?!Summary$)(?!.*\.M\d{2}$)(.+)$')
@@ -104,7 +104,7 @@ class LineRegex:
 @dataclass
 class Line:
     raw: str
-    ltype: LineType = LineType.UNKNOWN
+    type: LineType = LineType.UNKNOWN
     value: int = 0
     content: str = ""
 
@@ -122,127 +122,127 @@ class Line:
     def make_unit(cls, value: int, content: str) -> "Line":
         sign = "+" if value >= 0 else "-"
         raw = f"`{sign} {abs(value)}` {content}"
-        return cls(raw=raw, ltype=LineType.UNIT, value=value, content=content)
+        return cls(raw=raw, type=LineType.UNIT, value=value, content=content)
 
     @classmethod
     def make_blank(cls) -> "Line":
-        return cls(raw="", ltype=LineType.BLANK)
+        return cls(raw="", type=LineType.BLANK)
 
     def _parse(self):
         s = self.raw
         RE = self.RE
 
         if RE.BLANK.match(s):
-            self.ltype = LineType.BLANK
+            self.type = LineType.BLANK
             return
         if RE.DELIMITER.match(s):
-            self.ltype = LineType.DELIMITER
+            self.type = LineType.DELIMITER
             return
         if RE.EOF.match(s):
-            self.ltype = LineType.EOF
+            self.type = LineType.EOF
             return
         if RE.TIMESTAMP.match(s):
-            self.ltype = LineType.TIMESTAMP
+            self.type = LineType.TIMESTAMP
             self.content = RE.TIMESTAMP.match(s).group(1)
             return
 
         if RE.HEAD_TITLE.match(s):
-            self.ltype = LineType.HEAD_TITLE
+            self.type = LineType.HEAD_TITLE
             return
         if RE.LIFE_TITLE.match(s):
-            self.ltype = LineType.LIFE_TITLE
+            self.type = LineType.LIFE_TITLE
             return
         if RE.MONTH_TITLE.match(s):
-            self.ltype = LineType.MONTH_TITLE
+            self.type = LineType.MONTH_TITLE
             return 
         if RE.SUB_TITLE.match(s):
-            self.ltype = LineType.SUB_TITLE
+            self.type = LineType.SUB_TITLE
             return
         if RE.SUB_TAG.match(s):
-            self.ltype = LineType.SUB_TAG
+            self.type = LineType.SUB_TAG
             return
         if RE.TOTAL.match(s):
-            self.ltype = LineType.TOTAL
+            self.type = LineType.TOTAL
             return
         if RE.SUMMARY.match(s):
-            self.ltype = LineType.SUMMARY
+            self.type = LineType.SUMMARY
             return
 
         m = RE.UNIT.match(s)
         if m:
-            self.ltype = LineType.UNIT
+            self.type = LineType.UNIT
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             self.content = m.group(3)
             return
         
         m = RE.AGGR.match(s)
         if m:
-            self.ltype = LineType.AGGR
+            self.type = LineType.AGGR
             self.value = int(m.group(3)) if m.group(2) == "+" else -int(m.group(3))
             self.content = m.group(1)
             return
 
         m = RE.MONTH_SUM.match(s)
         if m:
-            self.ltype = LineType.MONTH_SUM
+            self.type = LineType.MONTH_SUM
             self.value = int(m.group(3)) if m.group(2) == "+" else -int(m.group(3))
             self.content = m.group(1)
             return
 
         m = RE.TITLE_SUM.match(s)
         if m:
-            self.ltype = LineType.TITLE_SUM
+            self.type = LineType.TITLE_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             return
 
         m = RE.SUB_TITLE_SUM.match(s)
         if m:
-            self.ltype = LineType.SUB_TITLE_SUM
+            self.type = LineType.SUB_TITLE_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             return
 
         m = RE.TOTAL_SUM.match(s)
         if m:
-            self.ltype = LineType.TOTAL_SUM
+            self.type = LineType.TOTAL_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             return
 
         # UNKNOWN
-        self.ltype = LineType.UNKNOWN
+        self.type = LineType.UNKNOWN
         self.content = s
 
 
     # ----- 序列化Markdown -------------------- #
 
     def to_raw(self) -> str:
-        if self.ltype == LineType.UNIT:
+        if self.type == LineType.UNIT:
             sign = "+" if self.value > 0 else "-"
             return f"`{sign} {abs(self.value)}` {self.content}"
         
-        if self.ltype == LineType.AGGR:
+        if self.type == LineType.AGGR:
             sign = "+" if self.value > 0 else "-"
             return f"{self.content} : {sign}{abs(self.value)}"
         
-        if self.ltype == LineType.MONTH_SUM:
+        if self.type == LineType.MONTH_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"> {self.content} : {sign}{abs(self.value)}"
         
-        if self.ltype == LineType.TITLE_SUM:
+        if self.type == LineType.TITLE_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"> {sign}{abs(self.value)}"
         
-        if self.ltype == LineType.SUB_TITLE_SUM:
+        if self.type == LineType.SUB_TITLE_SUM:
             sign = "+" if self.value > 0 else "-"
             return f">> {sign}{abs(self.value)}"
         
-        if self.ltype == LineType.TOTAL_SUM:
+        if self.type == LineType.TOTAL_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"Total : {sign}{abs(self.value)}"
         
-        if self.ltype == LineType.TIMESTAMP:
+        if self.type == LineType.TIMESTAMP:
             return f"*Update Time : {self.content}*"
         
-        if self.ltype == LineType.BLANK:
+        if self.type == LineType.BLANK:
             return ""
         
         return self.raw
@@ -253,7 +253,7 @@ class Line:
     @property
     def is_amount(self) -> bool:
         """ 是否包含金额 """
-        return self.ltype in (
+        return self.type in (
             LineType.UNIT, 
             LineType.AGGR, 
             LineType.MONTH_SUM, 
@@ -263,4 +263,4 @@ class Line:
         )
 
     def __repr__(self):
-        return f"Line({self.ltype.value}, val={self.value}, content={self.content!r})"
+        return f"Line({self.type.value}, val={self.value}, content={self.content!r})"

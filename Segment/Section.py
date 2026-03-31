@@ -1,14 +1,15 @@
 # File:        Section.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-22
-# LastEdit:    2026-03-26
-# Description: 
+# LastEdit:    2026-03-30
+# Description: Section分段模块
 
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional
-from Line import LineType, Line
+from colorama import Fore, Style
+
+from Line import Line, LineType
 from Line import LineRegex as RE
 
 
@@ -21,32 +22,46 @@ class BaseSection(ABC):
     head_line: Line
     summary_lines: List[Line] = field(default_factory=list)
     body_lines: List[Line] = field(default_factory=list)
+    _name: str = field(init=False)
+    _month_no: Optional[str] = field(init=False)
 
     def __post_init__(self):
-        if self.head_line.ltype != LineType.LIFE_TITLE and self.head_line.ltype != LineType.MONTH_TITLE and self.head_line.ltype != LineType.SUB_TAG:
-            raise ValueError("Section.head_line 必须是 MONTH_TITLE 或 SUB_TAG 类型")
+        if self.head_line.type not in {
+            LineType.LIFE_TITLE,
+            LineType.MONTH_TITLE,
+            LineType.SUB_TAG,
+        }:
+            raise ValueError(f"{Fore.RED}[!]{Style.RESET_ALL} Section.head_line 类型错误")
+
+        self._extract_name()
+        self._extract_month_no()
+
+    def _extract_name(self) -> str:
+        m = RE.LIFE_TITLE.match(self.head_line.raw)
+        if m:
+            self._name = "life." + m.group(1)
+        m = RE.MONTH_TITLE.match(self.head_line.raw)
+        if m:
+            self._name = m.group(1) + "." + m.group(2)
+        m = RE.SUB_TAG.match(self.head_line.raw)
+        if m:
+            self._name = m.group(1)
+    
+    def _extract_month_no(self) -> Optional[str]:
+        m = RE.LIFE_TITLE.match(self.head_line.raw)
+        if m:
+            self._month_no = m.group(1)
+        m = RE.MONTH_TITLE.match(self.head_line.raw)
+        if m:
+            self._month_no = m.group(2)
 
     @property
     def name(self) -> str:
-        m = RE.LIFE_TITLE.match(self.head_line.raw)
-        if m:
-            return "life" + m.group(1)
-        m = RE.MONTH_TITLE.match(self.head_line.raw)
-        if m:
-            return m.group(1) + m.group(2)
-        m = RE.SUB_TAG.match(self.head_line.raw)
-        if m:
-            return m.group(1)
+        return self._name
 
     @property
     def month_no(self) -> Optional[str]:
-        """
-        返回月份编号，例如 M02 / M03
-        """
-        m = re.search(r'\.(M\d{2})$', self.name)
-        if m:
-            return m.group(1)
-        return None
+        return self._month_no
 
     @property
     def lines(self) -> List[Line]:
@@ -54,13 +69,13 @@ class BaseSection(ABC):
 
     @property
     def unit_lines(self) -> List[Line]:
-        return [ln for ln in self.body_lines if ln.ltype == LineType.UNIT]
+        return [ln for ln in self.body_lines if ln.type == LineType.UNIT]
 
     @property
     def blank_lines(self) -> List[Line]:
-        return [ln for ln in self.body_lines if ln.ltype == LineType.BLANK]
+        return [ln for ln in self.body_lines if ln.type == LineType.BLANK]
 
-    def add_line(self, line: Line):
+    def parse_line(self, line: Line):
         if self.is_summary_line(line):
             self.summary_lines.append(line)
         else:
@@ -69,19 +84,20 @@ class BaseSection(ABC):
     def calc_units_sum(self) -> int:
         return sum(ln.value for ln in self.unit_lines)
 
-    def find_summary_line(self, keyword: str) -> Optional[Line]:
+    def get_summary_line(self, keyword: str) -> Optional[Line]:
         for ln in self.summary_lines:
             if keyword in ln.content:
                 return ln
         return None
+    
+    # ----- 序列化方法 -------------------- #
 
-    def to_raw_lines(self) -> List[str]:
+    def to_lines(self) -> List[str]:
         return [ln.to_raw() for ln in self.lines]
 
     def to_raw(self) -> str:
-        return "\n".join(self.to_raw_lines())
+        return "\n".join(self.to_lines())
     
-
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
@@ -120,10 +136,10 @@ class LifeSection(BaseSection):
         return errors
 
     def is_summary_line(self, line: Line) -> bool:
-        return line.ltype == LineType.MONTH_SUM
+        return line.type == LineType.MONTH_SUM
 
     def rebuild_summary(self):
-        income_line = self.find_summary_line("薪资")
+        income_line = self.get_summary_line("薪资")
         if income_line is None:
             raise ValueError(f"{self.name} 缺少 '薪资'")
 
@@ -140,28 +156,28 @@ class LifeSection(BaseSection):
         self.summary_lines = [
             Line(
                 raw="",
-                ltype=LineType.MONTH_SUM,
+                type=LineType.MONTH_SUM,
                 value=income,
                 content=f"{month_text}薪资"
             ),
             Line(
                 raw="",
-                ltype=LineType.MONTH_SUM,
+                type=LineType.MONTH_SUM,
                 value=expense,
                 content=f"{month_text}支出"
             ),
             Line(
                 raw="",
-                ltype=LineType.MONTH_SUM,
+                type=LineType.MONTH_SUM,
                 value=balance,
                 content=f"{month_text}结余"
             ),
         ]
 
     def validate_summary(self) -> bool:
-        income_line = self.find_summary_line("薪资")
-        expense_line = self.find_summary_line("支出")
-        balance_line = self.find_summary_line("结余")
+        income_line = self.get_summary_line("薪资")
+        expense_line = self.get_summary_line("支出")
+        balance_line = self.get_summary_line("结余")
 
         if income_line is None or expense_line is None or balance_line is None:
             return False
@@ -176,7 +192,7 @@ class LifeSection(BaseSection):
         )
     
     def get_summary(self) -> int:
-        balance_line = self.find_summary_line("结余")
+        balance_line = self.get_summary_line("结余")
         return balance_line.value if balance_line else 0
 
     def __repr__(self):
@@ -203,14 +219,14 @@ class MonthSection(BaseSection):
         return errors
 
     def is_summary_line(self, line: Line) -> bool:
-        return line.ltype == LineType.TITLE_SUM
+        return line.type == LineType.TITLE_SUM
 
     def rebuild_summary(self):
         total = self.calc_units_sum()
         self.summary_lines = [
             Line(
                 raw="",
-                ltype=LineType.TITLE_SUM,
+                type=LineType.TITLE_SUM,
                 value=total,
                 content=""
             )
@@ -222,13 +238,13 @@ class MonthSection(BaseSection):
 
         ln = self.summary_lines[0]
         return (
-            ln.ltype == LineType.TITLE_SUM and
+            ln.type == LineType.TITLE_SUM and
             ln.value == self.calc_units_sum()
         )
     
     def get_summary(self) -> int:
         ln = self.summary_lines[0] if self.summary_lines else None
-        return ln.value if ln and ln.ltype == LineType.TITLE_SUM else 0
+        return ln.value if ln and ln.type == LineType.TITLE_SUM else 0
 
     def __repr__(self):
         return (
@@ -254,14 +270,14 @@ class TitleSection(BaseSection):
         return errors
 
     def is_summary_line(self, line: Line) -> bool:
-        return line.ltype == LineType.SUB_TITLE_SUM
+        return line.type == LineType.SUB_TITLE_SUM
 
     def rebuild_summary(self):
         total = self.calc_units_sum()
         self.summary_lines = [
             Line(
                 raw="",
-                ltype=LineType.SUB_TITLE_SUM,
+                type=LineType.SUB_TITLE_SUM,
                 value=total,
                 content=""
             )
@@ -273,13 +289,13 @@ class TitleSection(BaseSection):
 
         ln = self.summary_lines[0]
         return (
-            ln.ltype == LineType.SUB_TITLE_SUM and
+            ln.type == LineType.SUB_TITLE_SUM and
             ln.value == self.calc_units_sum()
         )
 
     def get_summary(self) -> int:
         ln = self.summary_lines[0] if self.summary_lines else None
-        return ln.value if ln and ln.ltype == LineType.SUB_TITLE_SUM else 0
+        return ln.value if ln and ln.type == LineType.SUB_TITLE_SUM else 0
 
     def __repr__(self):
         return (
@@ -290,20 +306,22 @@ class TitleSection(BaseSection):
         )
 
 
-# ----- Section Factory -------------------- #
+# ======================================== #
+#    Section Factory
+# ======================================== #
 
 def make_section(headline: Line, lines: List[Line]) -> BaseSection:
     raw = headline.raw.strip()
-    ltype = headline.ltype
+    type = headline.type
     section = None
 
-    if ltype == LineType.LIFE_TITLE:
+    if type == LineType.LIFE_TITLE:
         # LifeSection
         section = LifeSection(head_line=headline)
-    elif ltype == LineType.MONTH_TITLE:
+    elif type == LineType.MONTH_TITLE:
         # MonthSection
         section = MonthSection(head_line=headline)
-    elif ltype == LineType.SUB_TAG:
+    elif type == LineType.SUB_TAG:
         # TitleSection
         section = TitleSection(head_line=headline)
     else:
@@ -311,6 +329,6 @@ def make_section(headline: Line, lines: List[Line]) -> BaseSection:
     
     if lines is not None:
         for line in lines:
-            section.add_line(line)
+            section.parse_line(line)
     
     return section

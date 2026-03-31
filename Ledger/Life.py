@@ -43,7 +43,7 @@ class _LifeLedgerParser(_BaseLedgerParser):
         
         if self.curr_head is None:
             pass
-        elif self.curr_head.ltype == LineType.LIFE_TITLE:
+        elif self.curr_head.type == LineType.LIFE_TITLE:
             # 分段部分
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
@@ -51,7 +51,7 @@ class _LifeLedgerParser(_BaseLedgerParser):
                 print(f"[警告] Life账本中创建了非LifeSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Life账本中出现其他分段类型: {self.curr_head.ltype}")
+            print(f"[警告] Life账本中出现其他分段类型: {self.curr_head.type}")
             pass
         
         # 重置状态

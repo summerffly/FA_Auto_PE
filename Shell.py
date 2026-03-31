@@ -1,15 +1,17 @@
 # File:        Shell.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-25
+# LastEdit:    2026-03-30
 # Description: 交互式命令行
 
 import cmd
 import shlex
+from unicodedata import name
 from colorama import Fore, Style
+from wcwidth import wcswidth
 
 import LedgerHub as hub
-#import Engine as engine
+import Engine as engine
 
 
 # ----- 工具函数 -------------------- #
@@ -38,13 +40,21 @@ def _print_section_summary(ledger, sec_name: str):
     print(f"  {sec.name:<20} {sign}{total}")
 
 
+def _pad_right(text: str, width: int) -> str:
+    w = wcswidth(text)
+    if w >= width:
+        return text
+    return text + " " * (width - w)
+
+
 def _print_ledger_summary(name: str):
     ledger = hub.get_ledger(name)
-    print(f"\n── {name} ──")
-    for sec in ledger.segments:
-        total = sec.calc_units_sum()
+    print(f"\n── {hub.LEDGER_FILES[name]} ──")
+    for seg in ledger.segments:
+        total = seg.calc_units_sum()
         sign  = "+" if total >= 0 else ""
-        print(f"  {sec.name:<20} {sign}{total}")
+        seg_name = _pad_right(seg.name, 15)
+        print(f"  {seg_name} {sign}{total}")
 
 
 # ======================================== #
@@ -78,7 +88,7 @@ class Shell(cmd.Cmd):
     # ----- 查看 -------------------- #
 
     def do_ls(self, _):
-        """ls  列出所有已加载的账本"""
+        """ls"""
         def run():
             names = hub.list_ledgers()
             if not names:
@@ -86,7 +96,19 @@ class Shell(cmd.Cmd):
                 return
             for name in names:
                 ledger = hub.get_ledger(name)
-                print(f"  {name:<12} {len(ledger.segments)} 个区间")
+                print(f"  {hub.LEDGER_FILES[name]:<14} {len(ledger.segments)} 个分段")
+        self._run(run)
+
+    def do_ts(self, _):
+        """ts"""
+        def run():
+            for name in hub.list_ledgers():
+                ledger = hub.get_ledger(name)
+                timestamp = ledger.tail.timestamp
+                if timestamp:
+                    print(f"  {hub.LEDGER_FILES[name]:<14} {timestamp}")
+                else:
+                    print(f"  {hub.LEDGER_FILES[name]:<14} NONE")
         self._run(run)
 
     def do_show(self, arg):
@@ -127,63 +149,6 @@ class Shell(cmd.Cmd):
                 _print_section_summary(ledger, parts[1])
         self._run(run)
 
-    def do_ts(self, _):
-        """ts"""
-        def run():
-            for name in hub.list_ledgers():
-                ledger = hub.get_ledger(name)
-                timestamp = ledger.tail.timestamp
-                if timestamp:
-                    print(f"  {name:<8} {timestamp}")
-                else:
-                    print(f"  {name:<8} NONE")
-        self._run(run)
-
-    # ----- 搜索 -------------------- #
-
-    def do_find(self, arg):
-        """find <账本> <关键字>  搜索包含关键字的行"""
-        def run():
-            parts = _parse(arg)
-            _require(parts, 2, "find <账本> <关键字>")
-            ledger  = hub.get_ledger(parts[0])
-            keyword = parts[1]
-            results = [ln for ln in ledger.all_lines() if keyword in ln.raw]
-            if not results:
-                print(f"  未找到包含 \"{keyword}\" 的行")
-            for ln in results:
-                print(f"  {ln.raw}")
-        self._run(run)
-
-    # ----- 修改 -------------------- #
-    
-    def do_mod(self, arg):
-        """mod val|txt <账本> <区间> <行号> <新值>  修改金额(val)或描述(txt)"""
-        def run():
-            parts = _parse(arg)
-            _require(parts, 6, "mod val|txt <账本> <区间> <行号> <新值>")
-            mode, ledger_name, sec_name, idx_s, new_val = (
-                parts[0], parts[1], parts[2], parts[3], parts[4]
-            )
-            ledger = hub.get_ledger(ledger_name)
-            sec    = ledger.get_segment(sec_name)
-            if sec is None:
-                raise ValueError(f"找不到区间: {sec_name}")
-            idx = int(idx_s)
-            if not (0 <= idx < len(sec.body_lines)):
-                raise ValueError(f"行号越界 body_lines 共 {len(sec.body_lines)} 行")
-            ln = sec.body_lines[idx]
-
-            if mode == "val":
-                ln.value = int(new_val)
-                print(f"  已修改第 {idx} 行金额 → {new_val}")
-            elif mode == "txt":
-                ln.content = new_val
-                print(f"  已修改第 {idx} 行描述 → {new_val}")
-            else:
-                raise ValueError(f"未知模式 \"{mode}\"，应为 val 或 txt")
-        self._run(run)
-
     # ----- 校验 -------------------- #
 
     def do_check(self, arg):
@@ -216,6 +181,15 @@ class Shell(cmd.Cmd):
                 print(f"  {name} 重建完成")
         self._run(run)
 
+    def do_sync(self, arg):
+        """sync [month|life]"""
+        def run():
+            parts = _parse(arg)
+            if parts[0] == "month":
+                engine.sync_month()
+                print(f"  Month 已同步")
+        self._run(run)
+
     # ----- 保存 -------------------- #
 
     def do_save(self, arg):
@@ -230,8 +204,6 @@ class Shell(cmd.Cmd):
                 print("  所有账本已保存")
         self._run(run)
 
-    # ----- 重载 -------------------- #
-
     def do_reload(self, arg):
         """reload [ledger]"""
         def run():
@@ -244,7 +216,7 @@ class Shell(cmd.Cmd):
                 print("  所有账本已重载")
         self._run(run)
 
-    # ----- 测试入口 -------------------- #
+    # ----- Debug -------------------- #
 
     def do_dump(self, arg):
         """dump [ledger]"""
@@ -264,15 +236,24 @@ class Shell(cmd.Cmd):
                 print(hub.get_ledger(parts[0]).__repr__())
         self._run(run)
 
-    # ----- 退出 -------------------- #
+    def do_test(self, _):
+        """test"""
+        def run():
+            print(f"Month List: {engine.month_list}")
+        self._run(run)
 
-    def do_q(self, _):
-        return self._quit()
+    # ----- Quit -------------------- #
 
     def do_quit(self, _):
+        """quit"""
+        return self._quit()
+
+    def do_q(self, _):
+        """q"""
         return self._quit()
 
     def do_exit(self, _):
+        """exit"""
         return self._quit()
 
     def _quit(self):

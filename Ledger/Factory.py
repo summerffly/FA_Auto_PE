@@ -20,25 +20,24 @@ def detect_ledger_type(lines: list) -> str:
     
     for line in lines:
         # 检查是否有life.Month标题
-        if line.ltype == LineType.HEAD_TITLE and "life" in line.raw.lower():
-            has_life = True
-        # 检查是否有life.M0x分段
-        if line.ltype == LineType.MONTH_TITLE and "life" in line.raw.lower():
+        if line.type == LineType.LIFE_TITLE:
             has_life = True
         # 检查是否有MONTH_TITLE
-        if line.ltype == LineType.MONTH_TITLE and "life" not in line.raw.lower():
+        if line.type == LineType.MONTH_TITLE:
             has_month_title = True
         # 检查是否有SUB_TAG
-        if line.ltype == LineType.SUB_TAG:
+        if line.type == LineType.SUB_TAG:
             has_sub_tag = True
     
     # 检测逻辑
     if has_life:
         return 'life'
-    elif has_sub_tag and not has_month_title:
+    elif has_month_title:
+        return 'month'
+    elif has_sub_tag:
         return 'title'
     else:
-        return 'month'
+        return ''
 
 
 def create_ledger_from_lines(lines) -> Union[LifeLedger, MonthLedger, TitleLedger]:

@@ -1,13 +1,14 @@
 # File:        Block.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-25
-# Description: 
+# LastEdit:    2026-03-30
+# Description: Block分段模块
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
+
 from Line import Line, LineType
 
 
@@ -38,8 +39,8 @@ class BaseBlock(ABC):
 class TailBlock(BaseBlock):
     def validate_struct(self) -> List[str]:
         errors = []
-        timestamp_line_cnt = [ln for ln in self.block_lines if ln.ltype == LineType.TIMESTAMP]
-        eof_line_cnt = [ln for ln in self.block_lines if ln.ltype == LineType.EOF]
+        timestamp_line_cnt = [ln for ln in self.block_lines if ln.type == LineType.TIMESTAMP]
+        eof_line_cnt = [ln for ln in self.block_lines if ln.type == LineType.EOF]
         if len(timestamp_line_cnt) != 1:
             errors.append(f"包含 {timestamp_line_cnt} Timestamp")
         if len(eof_line_cnt) != 1:
@@ -49,7 +50,7 @@ class TailBlock(BaseBlock):
     @property
     def timestamp_line(self) -> Optional[Line]:
         for ln in self.block_lines:
-            if ln.ltype == LineType.TIMESTAMP:
+            if ln.type == LineType.TIMESTAMP:
                 return ln
         return None
 
@@ -58,13 +59,15 @@ class TailBlock(BaseBlock):
         ln = self.timestamp_line
         return ln.content.strip() if ln else ""
     
-    def update_timestamp(self):
+    def refresh_timestamp(self):
         ln = self.timestamp_line
         if ln:
             ln.content = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-# ----- Block Factory -------------------- #
+# ======================================== #
+#    Block Factory
+# ======================================== #
 
 def make_tail_block(lines: List[Line]) -> TailBlock:
     return TailBlock(block_lines=lines)

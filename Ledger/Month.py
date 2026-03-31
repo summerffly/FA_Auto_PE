@@ -26,6 +26,13 @@ class MonthLedger(BaseLedger):
         for seg in self.segments:
             seg.rebuild_summary()
 
+    def get_month_total(self, month: str) -> int:
+        """ 获取月度总计 """
+        for seg in self.segments:
+            if seg.name == month:
+                return seg.get_summary()
+        return 0
+
 
 # ======================================== #
 #    MonthLedger Parser
@@ -43,7 +50,7 @@ class _MonthLedgerParser(_BaseLedgerParser):
         
         if self.curr_head is None:
             pass
-        elif self.curr_head.ltype == LineType.MONTH_TITLE:
+        elif self.curr_head.type == LineType.MONTH_TITLE:
             # 分段部分
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
@@ -51,7 +58,7 @@ class _MonthLedgerParser(_BaseLedgerParser):
                 print(f"[警告] Month账本中创建了非MonthSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Month账本中出现其他分段类型: {self.curr_head.ltype}")
+            print(f"[警告] Month账本中出现其他分段类型: {self.curr_head.type}")
             pass
 
         # 重置状态

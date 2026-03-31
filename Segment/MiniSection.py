@@ -1,12 +1,14 @@
 # File:        MiniSection.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-26
-# Description: 
+# LastEdit:    2026-03-30
+# Description: MiniSection分段模块
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional
+from colorama import Fore, Style
+
 from Line import Line, LineType
 from Line import LineRegex as RE
 
@@ -19,18 +21,43 @@ from Line import LineRegex as RE
 class BaseMiniSection(ABC):
     head_line: Line
     summary_lines: List[Line] = field(default_factory=list)
+    _name: str = field(init=False)
+    _month_no: Optional[str] = field(init=False)
+
+    def __post_init__(self):
+        if self.head_line.type not in {
+            LineType.LIFE_TITLE,
+            LineType.SUB_TITLE,
+            LineType.TOTAL,
+        }:
+            raise ValueError(f"{Fore.RED}[!]{Style.RESET_ALL} MiniSection.head_line 类型错误")
+        
+        self._extract_name()
+        self._extract_month_no()
+
+    def _extract_name(self) -> str:
+        m = RE.LIFE_TITLE.match(self.head_line.raw)
+        if m:
+            self._name = "life." + m.group(1)
+        m = RE.SUB_TITLE.match(self.head_line.raw)
+        if m:
+            self._name = m.group(1)
+        m = RE.TOTAL.match(self.head_line.raw)
+        if m:
+            self._name = "Total"
+    
+    def _extract_month_no(self) -> Optional[str]:
+        m = RE.LIFE_TITLE.match(self.head_line.raw)
+        if m:
+            self._month_no = m.group(1)
 
     @property
     def name(self) -> str:
-        m = RE.MONTH_TITLE.match(self.head_line.raw)
-        if m:
-            return m.group(1) + m.group(2)
-        m = RE.SUB_TITLE.match(self.head_line.raw)
-        if m:
-            return m.group(1)
-        m = RE.TOTAL.match(self.head_line.raw)
-        if m:
-            return "Total"
+        return self._name
+
+    @property
+    def month_no(self) -> Optional[str]:
+        return self._month_no
 
     @property
     def lines(self) -> List[Line]:
@@ -44,51 +71,51 @@ class BaseMiniSection(ABC):
 
 
 # ======================================== #
-#    MonthMiniSection
+#    LifeMiniSection
 # ======================================== #
 
 @dataclass
-class MonthMiniSection(BaseMiniSection):
+class LifeMiniSection(BaseMiniSection):
     def validate_struct(self) -> List[str]:
         errors = []
-        sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.MONTH_SUM)
+        sum_line_count = sum(1 for ln in self.summary_lines if ln.type == LineType.MONTH_SUM)
         if sum_line_count != 3:
             errors.append(f"包含 {sum_line_count} SummaryLines")
         return errors
     
-    def find_line(self, key: str) -> Optional[Line]:
+    def get_line(self, key: str) -> Optional[Line]:
         for ln in self.summary_lines:
-            if ln.ltype == LineType.MONTH_SUM and key in ln.content:
+            if ln.type == LineType.MONTH_SUM and key in ln.content:
                 return ln
         return None
 
     @property
     def income(self) -> int:
-        ln = self.find_line("薪资")
+        ln = self.get_line("薪资")
         return ln.value if ln else 0
 
     @property
     def expense(self) -> int:
-        ln = self.find_line("支出")
+        ln = self.get_line("支出")
         return ln.value if ln else 0
 
     @property
     def balance(self) -> int:
-        ln = self.find_line("结余")
+        ln = self.get_line("结余")
         return ln.value if ln else 0
     
     def set_income(self, value: int):
-        ln = self.find_line("薪资")
+        ln = self.get_line("薪资")
         if ln:
             ln.value = value
 
     def set_expense(self, value: int):
-        ln = self.find_line("支出")
+        ln = self.get_line("支出")
         if ln:
             ln.value = value
 
     def set_balance(self, value: int):
-        ln = self.find_line("结余")
+        ln = self.get_line("结余")
         if ln:
             ln.value = value
 
@@ -101,14 +128,14 @@ class MonthMiniSection(BaseMiniSection):
 class TitleMiniSection(BaseMiniSection):
     def validate_struct(self) -> List[str]:
         errors = []
-        sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.TITLE_SUM)
+        sum_line_count = sum(1 for ln in self.summary_lines if ln.type == LineType.TITLE_SUM)
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SummaryLines")
         return errors
 
     def get_summary_line(self) -> Optional[Line]:
         for ln in self.summary_lines:
-            if ln.ltype == LineType.TITLE_SUM:
+            if ln.type == LineType.TITLE_SUM:
                 return ln
         return None
 
@@ -126,12 +153,13 @@ class TitleMiniSection(BaseMiniSection):
 # ======================================== #
 #    TotalMiniSection
 # ======================================== #
+
 @dataclass
 class TotalMiniSection(BaseMiniSection):
     def validate_struct(self) -> List[str]:
         errors = []
-        sum_line_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.TOTAL_SUM)
-        delimiter_count = sum(1 for ln in self.summary_lines if ln.ltype == LineType.DELIMITER)
+        sum_line_count = sum(1 for ln in self.summary_lines if ln.type == LineType.TOTAL_SUM)
+        delimiter_count = sum(1 for ln in self.summary_lines if ln.type == LineType.DELIMITER)
         
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SummaryLines")
@@ -142,7 +170,7 @@ class TotalMiniSection(BaseMiniSection):
 
     def get_value_line(self) -> Optional[Line]:
         for ln in self.summary_lines:
-            if ln.ltype == LineType.TOTAL_SUM:
+            if ln.type == LineType.TOTAL_SUM:
                 return ln
         return None
 
@@ -157,19 +185,21 @@ class TotalMiniSection(BaseMiniSection):
             ln.value = value
 
 
-# ----- MiniSection Factory -------------------- #
+# ======================================== #
+#    MiniSection Factory
+# ======================================== #
 
 def make_minisection(headline: Line, lines: List[Line]) -> BaseMiniSection:
     raw = headline.raw.strip()
-    ltype = headline.ltype
+    type = headline.type
     
-    if ltype == LineType.MONTH_TITLE:
-        # MonthMiniSection
-        return MonthMiniSection(head_line=headline, summary_lines=lines)
-    elif ltype == LineType.SUB_TITLE:
+    if type == LineType.LIFE_TITLE:
+        # LifeMiniSection
+        return LifeMiniSection(head_line=headline, summary_lines=lines)
+    elif type == LineType.SUB_TITLE:
          # TitleMiniSection
         return TitleMiniSection(head_line=headline, summary_lines=lines)
-    elif ltype == LineType.TOTAL:
+    elif type == LineType.TOTAL:
         # TotalMiniSection
         return TotalMiniSection(head_line=headline, summary_lines=lines)
     else:

@@ -26,6 +26,27 @@ class LifeLedger(BaseLedger):
         for seg in self.segments:
             seg.rebuild_summary()
 
+    def get_month_income(self, month_no: str) -> int:
+        """ 获取指定月的收入总计 """
+        for seg in self.segments:
+            if isinstance(seg, LifeSection) and seg.month_no == month_no:
+                return seg.get_income()
+        return 0
+
+    def get_month_expense(self, month_no: str) -> int:
+        """ 获取指定月的支出总计 """
+        for seg in self.segments:
+            if isinstance(seg, LifeSection) and seg.month_no == month_no:
+                return seg.get_expense()
+        return 0
+
+    def get_month_balance(self, month_no: str) -> int:
+        """ 获取指定月的结余总计 """
+        for seg in self.segments:
+            if isinstance(seg, LifeSection) and seg.month_no == month_no:
+                return seg.get_balance()
+        return 0
+
 
 # ======================================== #
 #    LifeLedger Parser

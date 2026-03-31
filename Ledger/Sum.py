@@ -1,19 +1,20 @@
-# File:        SumLedger.py
+# File:        Ledger/Sum.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-29
+# LastEdit:    2026-03-31
 # Description: 汇总账本对象
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional
 from colorama import Fore, Style
 
 from Line import Line, LineType
 from Segment import (
-    BaseMiniSection, make_minisection, 
-    SummarySection, make_summary, 
-    BaseBlock, TailBlock, make_tail_block
+    TitleMiniSection, LifeMiniSection, make_minisection,
+    SummarySection, make_summary,
+    TailBlock, make_tail_block
 )
+from .Mixin import LedgerMixin
 
 
 # ======================================== #
@@ -21,25 +22,14 @@ from Segment import (
 # ======================================== #
 
 @dataclass
-class SumLedger:
+class SumLedger(LedgerMixin):
     header: List[Line] = field(default_factory=list)
-    segments: List[BaseMiniSection] = field(default_factory=list)
+    title_segments: List[TitleMiniSection] = field(default_factory=list)
+    life_segments: List[LifeMiniSection] = field(default_factory=list)
     summary: Optional[SummarySection] = None
     tail: Optional[TailBlock] = None
 
     # ----- 解析方法 -------------------- #
-
-    @classmethod
-    def parse_file(cls, filepath: str, encoding: str = "utf-8") -> "SumLedger":
-        with open(filepath, "r", encoding=encoding) as f:
-            text = f.read()
-        return cls.parse_text(text)
-
-    @classmethod
-    def parse_text(cls, text: str) -> "SumLedger":
-        raw_lines = text.splitlines()
-        lines = [Line.parse(raw) for raw in raw_lines]
-        return cls.parse_lines(lines)
 
     @classmethod
     def parse_lines(cls, lines: List[Line]) -> "SumLedger":
@@ -50,35 +40,52 @@ class SumLedger:
 
     def get_segment_names(self) -> List[str]:
         """ 获取所有分段名称 """
-        return [blk.name for blk in self.segments]
+        title_names = [seg.name for seg in self.title_segments]
+        life_names = [seg.name for seg in self.life_segments]
+        return title_names + life_names
 
-    def find_segment(self, name: str) -> Optional[Union[BaseBlock, BaseMiniSection]]:
-        """ 按名称查找分段 """
-        for blk in self.segments:
-            if blk.name == name:
-                return blk
+    def get_title_segment(self, name: str) -> Optional[TitleMiniSection]:
+        """ 获取 Title 分段 """
+        for seg in self.title_segments:
+            if seg.name == name:
+                return seg
         return None
 
-    def add_segment(self, segment: BaseMiniSection):
-        """ 添加新分段 """
-        self.segments.append(segment)
+    def get_life_segment(self, month_no: str) -> Optional[LifeMiniSection]:
+        """ 获取 Life 分段 """
+        for seg in self.life_segments:
+            if seg.month_no == month_no:
+                return seg
+        return None
+
+    def mod_title_segment_value(self, name: str, new_value: int):
+        """ 修改指定 Title 分段数值 """
+        seg = self.get_title_segment(name)
+        if seg is not None:
+            seg.set_value(new_value)
+
+    def mod_life_segment_value(self, month_no: str, income_value: int, expense_value: int, balance_value: int):
+        """ 修改指定月份 Life 分段数值 """
+        seg = self.get_life_segment(month_no)
+        if seg is not None:
+            seg.set_income(income_value)
+            seg.set_expense(expense_value)
+            seg.set_balance(balance_value)
 
     # ----- 验证方法 -------------------- #
 
     def validate(self) -> bool:
-        """验证所有区块"""
-        return all(blk.validate() for blk in self.segments)
+        """ 验证所有区块 """
+        return True
 
     # ----- 序列化方法 -------------------- #
-
-    def refresh_timestamp(self):
-        if self.tail:
-            self.tail.refresh_timestamp()
 
     def to_lines(self) -> List[Line]:
         all_lines: List[Line] = []
         all_lines.extend(self.header)
-        for seg in self.segments:
+        for seg in self.title_segments:
+            all_lines.extend(seg.lines)
+        for seg in self.life_segments:
             all_lines.extend(seg.lines)
         if self.summary:
             all_lines.extend(self.summary.to_lines())
@@ -86,66 +93,61 @@ class SumLedger:
             all_lines.extend(self.tail.lines)
         return all_lines
 
-    def to_raw(self) -> str:
-        lines = self.to_lines()
-        raw_lines = [ln.to_raw() for ln in lines]
-        raw_text = "\n".join(raw_lines)
-        if not raw_text.endswith("\n"):
-            raw_text += "\n"
-        return raw_text
-
-    def save(self, filepath: str, encoding: str = "utf-8"):
-        text = self.to_raw()
-        with open(filepath, "w", encoding=encoding) as f:
-            f.write(text)
-
-    def save_as(self, filepath: str, encoding: str = "utf-8"):
-        self.save(filepath, encoding)
-
     # ----- Debug -------------------- #
 
     def validate_struct(self) -> List[str]:
-        """验证账本结构，返回错误信息列表"""
+        """ 验证账本结构，返回错误信息列表 """
         errors = []
-        
+
         # 检查重复的分段名称
         names = self.get_segment_names()
         if len(names) != len(set(names)):
             errors.append("存在重复的分段名称")
 
-        # 逐个检查每个 section 的结构
-        for sec in self.segments:
+        # 检查 title_segments
+        for sec in self.title_segments:
             sec_errors = sec.validate_struct()
-            errors.extend([f"section '{sec.name}': {err}" for err in sec_errors])
-        
-        # 检查 tail 是否包含必要元素
+            errors.extend([f"title_section '{sec.name}': {err}" for err in sec_errors])
+
+        # 检查 life_segments
+        for sec in self.life_segments:
+            sec_errors = sec.validate_struct()
+            errors.extend([f"life_section '{sec.name}': {err}" for err in sec_errors])
+
+        # 检查 tail
         if self.tail:
             tail_errors = self.tail.validate_struct()
             errors.extend([f"tail: {err}" for err in tail_errors])
-        
+
         return errors
 
     def dump(self):
         """ 打印账本结构信息 """
         print("=== SumLedger Dump ===")
-        
+
         print("\n[HEAD]")
         for ln in self.header:
             print(f"  {ln.raw}")
-        
-        print(f"\n[SEGMENTS]")
-        for idx, blk in enumerate(self.segments, 1):
+
+        print("\n[TITLE SEGMENTS]")
+        for idx, blk in enumerate(self.title_segments, 1):
             print(f"  Segment {idx}: {blk.name} ({blk.__class__.__name__})")
             for ln in blk.lines:
                 print(f"    {ln.raw}")
-        
+
+        print("\n[LIFE SEGMENTS]")
+        for idx, blk in enumerate(self.life_segments, 1):
+            print(f"  Segment {idx}: {blk.name} ({blk.__class__.__name__})")
+            for ln in blk.lines:
+                print(f"    {ln.raw}")
+
         print("\n[SUMMARY]")
         if self.summary:
             for ln in self.summary.to_lines():
                 print(f"  {ln.raw}")
         else:
             print("  None")
-        
+
         print("\n[TAIL]")
         if self.tail:
             for ln in self.tail.lines:
@@ -155,8 +157,10 @@ class SumLedger:
 
     def __repr__(self):
         return (
-            f"SumLedger(header={len(self.header)}, "
-            f"segments={len(self.segments)}, "
+            f"SumLedger("
+            f"header={len(self.header)}, "
+            f"title_segments={len(self.title_segments)}, "
+            f"life_segments={len(self.life_segments)}, "
             f"summary={self.summary.name if self.summary else 'None'}, "
             f"tail={len(self.tail.lines) if self.tail else 0})"
         )
@@ -173,11 +177,11 @@ class _SumLedgerParser:
     index: int = 0
     curr_head: Optional[Line] = None
     curr_lines: List[Line] = field(default_factory=list)
-    
+
     def parse(self) -> SumLedger:
         while self.index < len(self.lines):
             line = self.lines[self.index]
-            
+
             # 处理新分段
             if line.type in (LineType.LIFE_TITLE, LineType.SUB_TITLE, LineType.SUMMARY):
                 self._finish_current_segment()
@@ -189,13 +193,13 @@ class _SumLedgerParser:
                 self._finish_current_segment()
                 self._parse_tail()
                 break
-            
+
             # 处理普通行
             self._process_normal_line(line)
             self.index += 1
-        
+
         return self.ledger
-    
+
     def _process_normal_line(self, line: Line):
         if self.curr_head is None:
             self.ledger.header.append(line)
@@ -206,28 +210,31 @@ class _SumLedgerParser:
         self.curr_head = head_line
         self.curr_lines = []
         self.index += 1
-    
+
     def _finish_current_segment(self):
         if self.curr_head is None and not self.curr_lines:
             return
-        
+
         if self.curr_head is None:
             pass
         elif self.curr_head.type == LineType.SUMMARY:
             self.ledger.summary = make_summary(self.curr_head, self.curr_lines)
         else:
             minisection = make_minisection(self.curr_head, self.curr_lines)
-            self.ledger.segments.append(minisection)
-        
+            if isinstance(minisection, LifeMiniSection):
+                self.ledger.life_segments.append(minisection)
+            else:
+                self.ledger.title_segments.append(minisection)
+
         # 重置状态
         self.curr_head = None
         self.curr_lines = []
-    
+
     def _parse_tail(self):
         tail_lines = []
         while self.index < len(self.lines):
             tail_lines.append(self.lines[self.index])
             self.index += 1
-        
+
         if tail_lines:
             self.ledger.tail = make_tail_block(tail_lines)

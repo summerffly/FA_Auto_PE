@@ -44,9 +44,8 @@ class TitleLedger(BaseLedger):
         if self.total is None:
             return
 
-        if self.total:
-            total_sum = self.get_total_value()
-            self.total.set_value(total_sum)
+        total_sum = self.get_all_segments_sum()
+        self.total.set_value(total_sum)
 
     def validate_total(self) -> bool:
         """验证总计是否正确"""

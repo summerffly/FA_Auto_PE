@@ -1,7 +1,7 @@
 # File:        Ledger/Base.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-03-30
+# LastEdit:    2026-03-31
 # Description: Ledger抽象基类
 
 from abc import ABC, abstractmethod
@@ -15,6 +15,7 @@ from Segment import (
     BaseMiniSection, 
     TailBlock, make_tail_block
 )
+from .Mixin import LedgerMixin
 
 
 # ======================================== #
@@ -22,38 +23,23 @@ from Segment import (
 # ======================================== #
 
 @dataclass
-class BaseLedger(ABC):
+class BaseLedger(LedgerMixin, ABC):
     header: List[Line] = field(default_factory=list)
     segments: List[BaseSection] = field(default_factory=list)
     total: Optional[BaseMiniSection] = None
     tail: Optional[TailBlock] = None
 
-    # ----- 工厂方法 -------------------- #
-
-    @classmethod
-    def parse_file(cls, filepath: str, encoding: str = "utf-8") -> "BaseLedger":
-        """ 从文件解析账本 """
-        with open(filepath, "r", encoding=encoding) as f:
-            text = f.read()
-        return cls.parse_text(text)
-
-    @classmethod
-    def parse_text(cls, text: str) -> "BaseLedger":
-        """ 从文本解析账本 """
-        raw_lines = text.splitlines()
-        lines = [Line.parse(raw) for raw in raw_lines]
-        return cls.parse_lines(lines)
+    # ----- 解析方法 -------------------- #
 
     @classmethod
     def parse_lines(cls, lines: List[Line]) -> "BaseLedger":
-        """ 从Line对象列表解析账本 """
         parser = cls._create_parser(lines)
         return parser.parse()
 
     @classmethod
     @abstractmethod
     def _create_parser(cls, lines: List[Line]) -> "_LedgerParser":
-        """ 创建本类型解析器 """
+        """ 创建类型解析器 """
         raise NotImplementedError
 
     # ----- 数据访问方法 -------------------- #
@@ -81,8 +67,8 @@ class BaseLedger(ABC):
                 return ln
         return None
 
-    def mod_segment_line(self, name: str, key: str, new_value: int) -> bool:
-        """ 修改指定分段+行 """
+    def mod_segment_line_value(self, name: str, key: str, new_value: int) -> bool:
+        """ 修改指定分段+行数值 """
         ln = self.get_segment_line(name, key)
         if ln is None:
             return False
@@ -123,13 +109,7 @@ class BaseLedger(ABC):
 
     # ----- 序列化方法 -------------------- #
 
-    def refresh_timestamp(self):
-        """更新时间戳"""
-        if self.tail:
-            self.tail.refresh_timestamp()
-
     def to_lines(self) -> List[Line]:
-        """转换为Line对象列表"""
         all_lines: List[Line] = []
         all_lines.extend(self.header)
         for seg in self.segments:
@@ -139,25 +119,6 @@ class BaseLedger(ABC):
         if self.tail:
             all_lines.extend(self.tail.lines)
         return all_lines
-
-    def to_raw(self) -> str:
-        """转换为原始文本"""
-        lines = self.to_lines()
-        raw_lines = [ln.to_raw() for ln in lines]
-        raw_text = "\n".join(raw_lines)
-        if not raw_text.endswith("\n"):
-            raw_text += "\n"
-        return raw_text
-
-    def save(self, filepath: str, encoding: str = "utf-8"):
-        """保存到文件"""
-        text = self.to_raw()
-        with open(filepath, "w", encoding=encoding) as f:
-            f.write(text)
-
-    def save_as(self, filepath: str, encoding: str = "utf-8"):
-        """另存为文件"""
-        self.save(filepath, encoding)
 
     # ----- 验证和调试 -------------------- #
 
@@ -230,7 +191,7 @@ class BaseLedger(ABC):
 @dataclass
 class _BaseLedgerParser(ABC):
     lines: List[Line]
-    ledger: BaseLedger = field(default_factory=lambda: None)
+    ledger: Optional[BaseLedger] = field(default=None)
     index: int = 0
     curr_head: Optional[Line] = None
     curr_lines: List[Line] = field(default_factory=list)

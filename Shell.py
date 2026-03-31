@@ -27,7 +27,7 @@ def _parse(arg: str) -> list[str]:
 def _require(parts: list[str], n: int, usage: str):
     """检查参数数量，不足时抛 ValueError。"""
     if len(parts) < n:
-        raise ValueError(f"参数不足，用法: {usage}")
+        raise ValueError(f"参数不足 用法: {usage}")
 
 
 def _print_section_summary(ledger, sec_name: str):
@@ -64,7 +64,7 @@ def _print_ledger_summary(name: str):
 class Shell(cmd.Cmd):
 
     #intro = f"{Fore.CYAN}Start Shell{Style.RESET_ALL}"
-    intro = rf" "
+    intro = f" "
     prompt = "CMD > "
 
     # ----- 内部辅助 -------------------- #
@@ -182,12 +182,19 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_sync(self, arg):
-        """sync [month|life]"""
+        """sync <month|life|title>"""
         def run():
             parts = _parse(arg)
+            _require(parts, 1, "sync <month|life|title>")
             if parts[0] == "month":
                 engine.sync_month()
                 print(f"  Month 已同步")
+            elif parts[0] == "life":
+                engine.sync_life()
+                print(f"  Life 已同步")
+            elif parts[0] == "title":
+                engine.sync_title()
+                print(f"  Title 已同步")
         self._run(run)
 
     # ----- 保存 -------------------- #
@@ -226,14 +233,24 @@ class Shell(cmd.Cmd):
                 hub.get_sum_ledger().dump()
             elif parts:
                 hub.get_ledger(parts[0]).dump()
+            else:
+                for name in hub.list_ledgers():
+                    print(f"\nLedger: {name}")
+                    hub.get_ledger(name).dump()
         self._run(run)
 
     def do_repr(self, arg):
         """repr [ledger]"""
         def run():
             parts = _parse(arg)
+            if parts and parts[0] == "sum":
+                print(hub.get_sum_ledger().__repr__())
             if parts:
                 print(hub.get_ledger(parts[0]).__repr__())
+            else:              
+                for name in hub.list_ledgers():
+                    print(f"\nLedger: {name}")
+                    print(hub.get_ledger(name).__repr__())
         self._run(run)
 
     def do_test(self, _):

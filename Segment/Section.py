@@ -33,26 +33,23 @@ class BaseSection(ABC):
         }:
             raise ValueError(f"{Fore.RED}[!]{Style.RESET_ALL} Section.head_line 类型错误")
 
+        self._name = ""
+        self._month_no = None
         self._extract_name()
         self._extract_month_no()
 
     def _extract_name(self) -> str:
-        m = RE.LIFE_TITLE.match(self.head_line.raw)
-        if m:
+        if m := RE.LIFE_TITLE.match(self.head_line.raw):
             self._name = "life." + m.group(1)
-        m = RE.MONTH_TITLE.match(self.head_line.raw)
-        if m:
+        if m := RE.MONTH_TITLE.match(self.head_line.raw):
             self._name = m.group(1) + "." + m.group(2)
-        m = RE.SUB_TAG.match(self.head_line.raw)
-        if m:
+        if m := RE.SUB_TAG.match(self.head_line.raw):
             self._name = m.group(1)
     
     def _extract_month_no(self) -> Optional[str]:
-        m = RE.LIFE_TITLE.match(self.head_line.raw)
-        if m:
+        if m := RE.LIFE_TITLE.match(self.head_line.raw):
             self._month_no = m.group(1)
-        m = RE.MONTH_TITLE.match(self.head_line.raw)
-        if m:
+        if m := RE.MONTH_TITLE.match(self.head_line.raw):
             self._month_no = m.group(2)
 
     @property
@@ -194,6 +191,18 @@ class LifeSection(BaseSection):
     def get_summary(self) -> int:
         balance_line = self.get_summary_line("结余")
         return balance_line.value if balance_line else 0
+    
+    def get_income(self) -> int:
+        income_line = self.get_summary_line("薪资")
+        return income_line.value if income_line else 0
+    
+    def get_expense(self) -> int:
+        expense_line = self.get_summary_line("支出")
+        return expense_line.value if expense_line else 0
+    
+    def get_balance(self) -> int:
+        balance_line = self.get_summary_line("结余")
+        return balance_line.value if balance_line else 0
 
     def __repr__(self):
         return (
@@ -316,13 +325,10 @@ def make_section(headline: Line, lines: List[Line]) -> BaseSection:
     section = None
 
     if type == LineType.LIFE_TITLE:
-        # LifeSection
         section = LifeSection(head_line=headline)
     elif type == LineType.MONTH_TITLE:
-        # MonthSection
         section = MonthSection(head_line=headline)
     elif type == LineType.SUB_TAG:
-        # TitleSection
         section = TitleSection(head_line=headline)
     else:
         raise ValueError(f"未知 Section 类型: {raw}")

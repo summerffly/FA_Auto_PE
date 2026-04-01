@@ -1,7 +1,7 @@
 # File:        Ledger/Base.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-03-31
+# LastEdit:    2026-04-01
 # Description: Ledger抽象基类
 
 from abc import ABC, abstractmethod
@@ -161,7 +161,7 @@ class BaseLedger(LedgerMixin, ABC):
         for i, sec in enumerate(self.segments, 1):
             print(f"[Segment {i}] {sec.name}")
             print(f"   class     : {sec.__class__.__name__}")
-            print(f"   summaries : {len(sec.summary_lines)}")
+            print(f"   summaries : {len(sec.aggr_lines)}")
             print(f"   body      : {len(sec.body_lines)}")
             print(f"   units     : {len(sec.unit_lines)}")
             print(f"   blanks    : {len(sec.blank_lines)}")
@@ -170,7 +170,7 @@ class BaseLedger(LedgerMixin, ABC):
         if self.total:
             print(f"[Total] {self.total.name}")
             print(f"   class : {self.total.__class__.__name__}")
-            print(f"   lines : {len(self.total.summary_lines)}")
+            print(f"   lines : {len(self.total.aggr_lines)}")
             print()
 
     def __repr__(self):
@@ -201,7 +201,7 @@ class _BaseLedgerParser(ABC):
             line = self.lines[self.index]
             
             # 处理新分段
-            if line.type in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.SUB_TAG, LineType.TOTAL):
+            if line.type in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.COLLECT_TITLE, LineType.TOTAL_TITLE):
                 self._finish_current_segment()
                 self._start_new_segment(line)
                 continue
@@ -225,9 +225,9 @@ class _BaseLedgerParser(ABC):
         else:
             self.curr_lines.append(line)
 
-    def _start_new_segment(self, head_line: Line):
+    def _start_new_segment(self, title_line: Line):
         """ 开始新分段 """
-        self.curr_head = head_line
+        self.curr_head = title_line
         self.curr_lines = []
         self.index += 1
 

@@ -26,7 +26,7 @@ class WealthBlock:
 
     def _get_line(self, keyword: str) -> Optional[Line]:
         for ln in self.lines:
-            if ln.type == LineType.AGGR and keyword in ln.content:
+            if ln.type == LineType.PRIMARY and keyword in ln.content:
                 return ln
         return None
 
@@ -89,24 +89,24 @@ class SpecialBlock:
 class AllocationBlock:
     lines: List[Line]
 
-    def _get_aggr_lines(self) -> List[Line]:
-        return [ln for ln in self.lines if ln.type == LineType.AGGR]
+    def _get_primary_lines(self) -> List[Line]:
+        return [ln for ln in self.lines if ln.type == LineType.PRIMARY]
 
     def _get_line(self, keyword: str) -> Optional[Line]:
         for ln in self.lines:
-            if ln.type == LineType.AGGR and keyword in ln.content:
+            if ln.type == LineType.PRIMARY and keyword in ln.content:
                 return ln
         return None
 
     @property
     def disposable_wealth(self) -> int:
         """ 可支配财富 """
-        ln = self._get_aggr_lines()
+        ln = self._get_primary_lines()
         return ln[0].value if ln else 0
 
     def set_disposable_wealth(self, value: int):
         """ 更新可支配财富 """
-        aggr_lines = self._get_aggr_lines()
+        aggr_lines = self._get_primary_lines()
         if aggr_lines:
             aggr_lines[0].value = value
 
@@ -124,7 +124,7 @@ class AllocationBlock:
     @property
     def allocation_lines(self) -> List[Line]:
         """ 资产分布各行（可支配财富以外）"""
-        return self._get_aggr_lines()[1:]
+        return self._get_primary_lines()[1:]
 
     def get_secondary_total(self) -> int:
         """ 固定分配总和（除主分配行以外）"""

@@ -1,7 +1,7 @@
 # File:        LedgerHub.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-23
-# LastEdit:    2026-03-31
+# LastEdit:    2026-04-01
 # Description: 所有账本合集
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from Ledger import (
     BaseLedger,
     LifeLedger,
     MonthLedger,
-    TitleLedger,
+    CollectLedger,
     SumLedger,
     create_ledger_from_file
 )
@@ -89,8 +89,8 @@ class LedgerHub:
             print(f"Load Ledger:  {alias:<8} {name:<10} LifeLedger")
         elif isinstance(ledger, MonthLedger):
             print(f"Load Ledger:  {alias:<8} {name:<10} MonthLedger")
-        elif isinstance(ledger, TitleLedger):
-            print(f"Load Ledger:  {alias:<8} {name:<10} TitleLedger")
+        elif isinstance(ledger, CollectLedger):
+            print(f"Load Ledger:  {alias:<8} {name:<10} CollectLedger")
         else:
             print(f"Load Ledger:  {alias:<8} {name:<10} Unknown Ledger")
 

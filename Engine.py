@@ -1,7 +1,7 @@
 # File:        Engine.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-31
+# LastEdit:    2026-04-01
 # Description: FA系统核心引擎
 
 from typing import List
@@ -62,7 +62,7 @@ class Engine:
                 month_balance
             )
 
-    def sync_title(self):
+    def sync_collect(self):
         """同步项目账本数据到汇总账本"""
         sum_ledger    = self._hub.get_sum_ledger()
         dk_ledger     = self._hub.get_ledger("dk")
@@ -75,16 +75,16 @@ class Engine:
         total_travel = travel_ledger.get_total_value()
         total_box    = box_ledger.get_total_value()
 
-        sum_ledger.mod_title_segment_value("DK",     total_dk)
-        sum_ledger.mod_title_segment_value("NS",     total_ns)
-        sum_ledger.mod_title_segment_value("travel", total_travel)
-        sum_ledger.mod_title_segment_value("BOX",    total_box)
+        sum_ledger.mod_collect_segment_value("DK",     total_dk)
+        sum_ledger.mod_collect_segment_value("NS",     total_ns)
+        sum_ledger.mod_collect_segment_value("travel", total_travel)
+        sum_ledger.mod_collect_segment_value("BOX",    total_box)
 
     def sync_all(self):
         """执行完整同步流程"""
         self.sync_month()
         self.sync_life()
-        self.sync_title()
+        self.sync_collect()
 
     def rebuild(self):
         """重建所有计算值"""
@@ -104,7 +104,7 @@ class Engine:
         self.sync_life()
         print(f"  [2/4] Life 已同步")
         self.rebuild()
-        self.sync_title()
-        print(f"  [3/4] Title 已同步")
+        self.sync_collect()
+        print(f"  [3/4] Collect 已同步")
         self.rebuild()
         print(f"  [4/4] 重建完成")

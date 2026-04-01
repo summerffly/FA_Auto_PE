@@ -1,7 +1,7 @@
 # File:        Shell.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-31
+# LastEdit:    2026-04-01
 # Description: 交互式命令行
 
 import cmd
@@ -204,16 +204,16 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_sync(self, arg):
-        """sync <month|life|title|all>
+        """sync <month|life|collect|all>
         同步数据：
           month — 将DGtler/KEEP/TB月账汇总写入life账本
           life  — 将life账本月度数据写入汇总账本
-          title — 将DK/NS/travel/BOX项目账写入汇总账本
-          all   — 依次执行 month → life → title
+          collect — 将DK/NS/travel/BOX项目账写入汇总账本
+          all   — 依次执行 month → life → collect
         """
         def run():
             parts = _parse(arg)
-            _require(parts, 1, "sync <month|life|title|all>")
+            _require(parts, 1, "sync <month|life|collect|all>")
 
             if parts[0] == "month":
                 self._engine.sync_month()
@@ -221,16 +221,16 @@ class Shell(cmd.Cmd):
             elif parts[0] == "life":
                 self._engine.sync_life()
                 print(f"  Life 已同步")
-            elif parts[0] == "title":
-                self._engine.sync_title()
-                print(f"  Title 已同步")
+            elif parts[0] == "collect":
+                self._engine.sync_collect()
+                print(f"  Collect 已同步")
             elif parts[0] == "all":
                 self._engine.sync_month()
                 print(f"  [1/3] Month 已同步")
                 self._engine.sync_life()
                 print(f"  [2/3] Life 已同步")
-                self._engine.sync_title()
-                print(f"  [3/3] Title 已同步")
+                self._engine.sync_collect()
+                print(f"  [3/3] Collect 已同步")
             else:
                 raise ValueError(f"未知同步目标: {parts[0]}")
         self._run(run)

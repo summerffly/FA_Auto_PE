@@ -1,26 +1,26 @@
-# File:        Ledger/Title.py
+# File:        Ledger/Collect.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-03-30
-# Description: Title账本实现
+# LastEdit:    2026-04-01
+# Description: Collect账本实现
 
 from dataclasses import dataclass
 from typing import List, Optional
 from Line import Line, LineType
 
-from Segment import TitleSection, make_section, make_minisection
+from Segment import CollectSection, make_section, make_minisection
 from .Base import BaseLedger, _BaseLedgerParser
 
 
 # ======================================== #
-#    TitleLedger
+#    CollectLedger
 # ======================================== #
 
 @dataclass
-class TitleLedger(BaseLedger):    
+class CollectLedger(BaseLedger):    
     @classmethod
-    def _create_parser(cls, lines: List[Line]) -> "_TitleLedgerParser":
-        return _TitleLedgerParser(lines, ledger=TitleLedger())
+    def _create_parser(cls, lines: List[Line]) -> "_CollectLedgerParser":
+        return _CollectLedgerParser(lines, ledger=CollectLedger())
 
     def rebuild_ledger(self):
         # 重建每个分段
@@ -61,14 +61,14 @@ class TitleLedger(BaseLedger):
 
 
 # ======================================== #
-#    TitleLedger Parser
+#    CollectLedger Parser
 # ======================================== #
 
 @dataclass
-class _TitleLedgerParser(_BaseLedgerParser):    
+class _CollectLedgerParser(_BaseLedgerParser):    
     def __post_init__(self):
         if self.ledger is None:
-            self.ledger = TitleLedger()
+            self.ledger = CollectLedger()
 
     def _finish_current_segment(self):
         if self.curr_head is None and not self.curr_lines:
@@ -76,15 +76,15 @@ class _TitleLedgerParser(_BaseLedgerParser):
         
         if self.curr_head is None:
             pass
-        elif self.curr_head.type == LineType.TOTAL:
+        elif self.curr_head.type == LineType.TOTAL_TITLE:
             # 总计部分
             self.ledger.total = make_minisection(self.curr_head, self.curr_lines)
-        elif self.curr_head.type == LineType.SUB_TAG:
+        elif self.curr_head.type == LineType.COLLECT_TITLE:
             # 分段部分
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
-            if not isinstance(section, TitleSection):
-                print(f"[警告] Title账本中创建了非TitleSection: {section.__class__.__name__}")
+            if not isinstance(section, CollectSection):
+                print(f"[警告] Title账本中创建了非CollectSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
             print(f"[警告] Title账本中出现其他分段类型: {self.curr_head.type}")

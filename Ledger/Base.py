@@ -82,29 +82,29 @@ class BaseLedger(LedgerMixin, ABC):
         seg = self.get_segment(name)
         if seg is None:
             raise ValueError(f"segment 不存在: {name}")
-        seg.rebuild_summary()
+        seg.rebuild_aggr()
 
     def validate_segment_summary(self, name: str) -> bool:
         """ 验证指定分段汇总 """
         seg = self.get_segment(name)
         if seg is None:
             raise ValueError(f"segment 不存在: {name}")
-        return seg.validate_summary()
+        return seg.validate_aggr()
 
-    def validate_all_summaries(self) -> bool:
+    def validate_ledger(self) -> bool:
         """ 验证所有分段汇总 """
-        return all(seg.validate_summary() for seg in self.segments)
+        return all(seg.validate_aggr() for seg in self.segments)
 
     def get_all_segments_sum(self) -> int:
         """获取所有分段的总和"""
         total_sum = 0
         for seg in self.segments:
-            total_sum += seg.get_summary()
+            total_sum += seg.get_aggr()
         return total_sum
 
     @abstractmethod
     def rebuild_ledger(self):
-        """重建整个账本（抽象方法）"""
+        """重建整个账目（抽象方法）"""
         raise NotImplementedError
 
     # ----- 序列化方法 -------------------- #
@@ -113,17 +113,17 @@ class BaseLedger(LedgerMixin, ABC):
         all_lines: List[Line] = []
         all_lines.extend(self.header)
         for seg in self.segments:
-            all_lines.extend(seg.lines)
+            all_lines.extend(seg.to_lines())
         if self.total:
-            all_lines.extend(self.total.lines)
+            all_lines.extend(self.total.to_lines())
         if self.tail:
-            all_lines.extend(self.tail.lines)
+            all_lines.extend(self.tail.to_lines())
         return all_lines
 
     # ----- 验证和调试 -------------------- #
 
     def validate_struct(self) -> List[str]:
-        """验证账本结构"""
+        """验证账目结构"""
         errors = []
         
         # 检查重复的Segment名称
@@ -149,13 +149,13 @@ class BaseLedger(LedgerMixin, ABC):
         return errors
 
     def dump(self):
-        """打印账本结构"""
+        """打印账目结构"""
         print("=== Ledger Dump ===")
         print(f"Type     : {self.__class__.__name__}")
         print(f"header   : {len(self.header)}")
         print(f"segments : {len(self.segments)}")
         print(f"total    : {self.total.name if self.total else 'None'}")
-        print(f"tail     : {len(self.tail.lines) if self.tail else 0}")
+        print(f"tail     : {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
         for i, sec in enumerate(self.segments, 1):
@@ -179,7 +179,7 @@ class BaseLedger(LedgerMixin, ABC):
             f"header={len(self.header)}, "
             f"segments={len(self.segments)}, "
             f"total={self.total.name if self.total else 'None'}, "
-            f"tail={len(self.tail.lines) if self.tail else 0})"
+            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )
 
 

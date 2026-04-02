@@ -1,4 +1,4 @@
-# File:        MiniSection.py
+# File:        Segment/MiniSection.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
 # LastEdit:    2026-04-01
@@ -19,35 +19,27 @@ from Line import LineRegex as RE
 
 @dataclass
 class BaseMiniSection(ABC):
+
+    # ----- 属性 -------------------- #
+
     title_line: Line
     aggr_lines: List[Line] = field(default_factory=list)
     _name: str = field(init=False)
     _month_no: Optional[str] = field(init=False)
 
-    def __post_init__(self):
-        if self.title_line.type not in {
-            LineType.LIFE_TITLE,
-            LineType.COLLECT_TITLE,
-            LineType.TOTAL_TITLE,
-        }:
-            raise ValueError(f"{Fore.RED}[!]{Style.RESET_ALL} MiniSection.title_line 类型错误")
-        
+    def __post_init__(self):        
         self._name = ""
         self._month_no = None
-        self._extract_name()
-        self._extract_month_no()
+        self._parse_title()
 
-    def _extract_name(self) -> str:
+    def _parse_title(self) -> str:
         if m := RE.LIFE_TITLE.match(self.title_line.raw):
-            self._name = "life." + m.group(1)
+            self._name = m.group(1) + m.group(2)
+            self._month_no = m.group(2)
         if m := RE.COLLECT_TITLE.match(self.title_line.raw):
             self._name = m.group(1)
         if m := RE.TOTAL_TITLE.match(self.title_line.raw):
-            self._name = "Total"
-    
-    def _extract_month_no(self) -> Optional[str]:
-        if m := RE.LIFE_TITLE.match(self.title_line.raw):
-            self._month_no = m.group(1)
+            self._name = m.group(1)
 
     @property
     def name(self) -> str:
@@ -57,8 +49,7 @@ class BaseMiniSection(ABC):
     def month_no(self) -> Optional[str]:
         return self._month_no
 
-    @property
-    def lines(self) -> List[Line]:
+    def to_lines(self) -> List[Line]:
         return [self.title_line] + self.aggr_lines
 
     # ----- 抽象方法 -------------------- #
@@ -137,12 +128,11 @@ class CollectMiniSection(BaseMiniSection):
                 return ln
         return None
 
-    @property
-    def value(self) -> int:
+    def get_aggr(self) -> int:
         ln = self.get_aggr_line()
         return ln.value if ln else 0
     
-    def set_value(self, value: int):
+    def set_aggr(self, value: int):
         ln = self.get_aggr_line()
         if ln:
             ln.value = value
@@ -166,19 +156,18 @@ class TotalMiniSection(BaseMiniSection):
         
         return errors
 
-    def get_value_line(self) -> Optional[Line]:
+    def get_total_line(self) -> Optional[Line]:
         for ln in self.aggr_lines:
             if ln.type == LineType.TOTAL:
                 return ln
         return None
 
-    @property
-    def value(self) -> int:
-        ln = self.get_value_line()
+    def get_total(self) -> int:
+        ln = self.get_total_line()
         return ln.value if ln else 0
     
-    def set_value(self, value: int):
-        ln = self.get_value_line()
+    def set_total(self, value: int):
+        ln = self.get_total_line()
         if ln:
             ln.value = value
 
@@ -189,13 +178,13 @@ class TotalMiniSection(BaseMiniSection):
 
 def make_minisection(titleline: Line, lines: List[Line]) -> BaseMiniSection:
     raw = titleline.raw.strip()
-    type = titleline.type
+    ltype = titleline.type
     
-    if type == LineType.LIFE_TITLE:
+    if ltype == LineType.LIFE_TITLE:
         return LifeMiniSection(title_line=titleline, aggr_lines=lines)
-    elif type == LineType.COLLECT_TITLE:
+    elif ltype == LineType.COLLECT_TITLE:
         return CollectMiniSection(title_line=titleline, aggr_lines=lines)
-    elif type == LineType.TOTAL_TITLE:
+    elif ltype == LineType.TOTAL_TITLE:
         return TotalMiniSection(title_line=titleline, aggr_lines=lines)
     else:
         raise ValueError(f"未知 MiniSection 类型: {raw}")

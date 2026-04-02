@@ -6,6 +6,7 @@
 
 from typing import List
 from colorama import Fore, Style
+from wcwidth import wcswidth
 
 from LedgerHub import LedgerHub
 
@@ -23,12 +24,41 @@ class Engine:
         life_ledger = self._hub.get_ledger("life")
         return [seg.month_no for seg in life_ledger.segments]
 
+    def _pad_right(self, text: str, width: int) -> str:
+        w = wcswidth(text)
+        if w >= width:
+            return text
+        return text + " " * (width - w)
+
     # ======================================== #
     #    同步方法
     # ======================================== #
 
+    def show_ledger_aggr(self, alias: str):
+        ledger = self._hub.get_ledger(alias)
+        name = self._hub.get_name(alias)
+        print(f"\n── {name} ──")
+        for seg in ledger.segments:
+            total    = seg.calc_units_aggr()
+            sign     = "+" if total >= 0 else ""
+            seg_name = self._pad_right(seg.name, 15)
+            print(f"  {seg_name} {sign}{total}")
+
+
+    def show_segment_aggr(self, alias: str, seg_name: str):
+        ledger = self._hub.get_ledger(alias)
+        seg = ledger.get_segment(seg_name)
+        if seg is None:
+            print(f"  [!] 找不到区间: {seg_name}")
+            return
+        aggr = seg.calc_units_aggr()
+        sign  = "+" if aggr >= 0 else ""
+        seg_name = self._pad_right(seg.name, 15)
+        print(f"  {seg_name} {sign}{aggr}")
+    
+
     def sync_month(self):
-        """同步月度账本数据到life账本"""
+        """同步月度账目数据到life账目"""
         month_list = self._get_month_list()
         life_ledger   = self._hub.get_ledger("life")
         dgtler_ledger = self._hub.get_ledger("dgtler")
@@ -45,7 +75,7 @@ class Engine:
             life_ledger.mod_segment_line_value(f"life.{month}", "TB",     total_tb)
 
     def sync_life(self):
-        """同步life账本数据到汇总账本"""
+        """同步life账目数据到汇总账目"""
         month_list   = self._get_month_list()
         sum_ledger   = self._hub.get_sum_ledger()
         life_ledger  = self._hub.get_ledger("life")
@@ -63,7 +93,7 @@ class Engine:
             )
 
     def sync_collect(self):
-        """同步项目账本数据到汇总账本"""
+        """同步项目账目数据到汇总账目"""
         sum_ledger    = self._hub.get_sum_ledger()
         dk_ledger     = self._hub.get_ledger("dk")
         ns_ledger     = self._hub.get_ledger("ns")
@@ -89,7 +119,7 @@ class Engine:
     def rebuild(self):
         """重建所有计算值"""
         sum_ledger = self._hub.get_sum_ledger()
-        sum_ledger.rebuild_summary()
+        sum_ledger.rebuild_ledger()
 
         for entry in self._hub._entries.values():
             ledger = entry.ledger

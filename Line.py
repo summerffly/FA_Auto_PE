@@ -54,15 +54,15 @@ class LineRegex:
     # # Digital Kingdom
     HEADER: ClassVar[re.Pattern] = re.compile(r'^# (.+)$')
     # ## life.M03
-    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## life\.(M\d{2})$')
+    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (life\.)(M\d{2})$')
     # ## DGtler.M03
-    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+)\.(M\d{2})$')
+    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+\.)(M\d{2})$')
     # ## NGXP
     COLLECT_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!.*\.M\d{2}$)(.+)$')
     # ### Total
-    TOTAL_TITLE: ClassVar[re.Pattern] = re.compile(r'^### Total$')
+    TOTAL_TITLE: ClassVar[re.Pattern] = re.compile(r'^### (Total)$')
     # ### Summary
-    SUMMARY_TITLE: ClassVar[re.Pattern] = re.compile(r'^### Summary$')
+    SUMMARY_TITLE: ClassVar[re.Pattern] = re.compile(r'^### (Summary)$')
 
     # `- 50` 猫罐头
     UNIT: ClassVar[re.Pattern] = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
@@ -191,7 +191,7 @@ class Line:
         self.content = s
 
 
-    # ----- 序列化Markdown -------------------- #
+    # ----- 序列化 -------------------- #
 
     def to_raw(self) -> str:
         if self.type == LineType.UNIT:

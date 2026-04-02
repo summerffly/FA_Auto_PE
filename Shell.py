@@ -7,7 +7,6 @@
 import cmd
 import shlex
 from colorama import Fore, Style
-from wcwidth import wcswidth
 
 from LedgerHub import LedgerHub
 from Engine import Engine
@@ -18,7 +17,7 @@ from Engine import Engine
 # ======================================== #
 
 def _parse(arg: str) -> list[str]:
-    """把arg字符串安全拆分成token列表（支持引号包裹的描述）"""
+    """把arg字符串安全拆分成token列表"""
     try:
         return shlex.split(arg)
     except ValueError as e:
@@ -26,16 +25,9 @@ def _parse(arg: str) -> list[str]:
 
 
 def _require(parts: list[str], n: int, usage: str):
-    """检查参数数量，不足时抛ValueError"""
+    """检查参数数量"""
     if len(parts) < n:
         raise ValueError(f"参数不足 用法: {usage}")
-
-
-def _pad_right(text: str, width: int) -> str:
-    w = wcswidth(text)
-    if w >= width:
-        return text
-    return text + " " * (width - w)
 
 
 # ======================================== #
@@ -52,9 +44,7 @@ class Shell(cmd.Cmd):
         self._hub    = hub
         self._engine = engine
 
-    # ======================================== #
-    #    内部辅助
-    # ======================================== #
+    # ----- 内部辅助 -------------------- #
 
     def _run(self, fn):
         try:
@@ -62,7 +52,7 @@ class Shell(cmd.Cmd):
         except ValueError as e:
             print(f"{Fore.RED}[!]{Style.RESET_ALL} {e}")
         except KeyError as e:
-            print(f"{Fore.RED}[!]{Style.RESET_ALL} 找不到账本: {e}")
+            print(f"{Fore.RED}[!]{Style.RESET_ALL} 找不到账目: {e}")
         except Exception as e:
             print(f"{Fore.RED}[!]{Style.RESET_ALL} 执行出错: {e}")
 
@@ -72,38 +62,7 @@ class Shell(cmd.Cmd):
     def default(self, line):
         print(f"{Fore.RED}[!]{Style.RESET_ALL} 未知命令: {line.split()[0]}")
 
-    def _print_section_summary(self, ledger, sec_name: str):
-        sec = ledger.get_segment(sec_name)
-        if sec is None:
-            print(f"  [!] 找不到区间: {sec_name}")
-            return
-        total = sec.calc_units_sum()
-        sign  = "+" if total >= 0 else ""
-        print(f"  {sec.name:<20} {sign}{total}")
-
-    def _print_ledger_summary(self, name: str):
-        ledger = self._hub.get_ledger(name)
-        name = self._hub.get_name(name)
-        print(f"\n── {name} ──")
-        for seg in ledger.segments:
-            total    = seg.calc_units_sum()
-            sign     = "+" if total >= 0 else ""
-            seg_name = _pad_right(seg.name, 15)
-            print(f"  {seg_name} {sign}{total}")
-
-    # ======================================== #
-    #    查看命令
-    # ======================================== #
-
-    def do_ls(self, _):
-        """ls"""
-        def run():
-            names = self._hub.list_ledger_alias()
-            for name in names:
-                ledger = self._hub.get_ledger(name)
-                name   = self._hub.get_name(name)
-                print(f"  {name:<10} {len(ledger.segments)} 个分段")
-        self._run(run)
+    # ----- 查看 -------------------- #
 
     def do_ts(self, _):
         """ts"""
@@ -120,11 +79,23 @@ class Shell(cmd.Cmd):
                 print(f"  {filepath:<14} {timestamp if timestamp else 'NONE'}")
         self._run(run)
 
-    def do_show(self, arg):
-        """show <账本别名> [分段名]"""
+    def do_ls(self, _):
+        """ls"""
+        def run():
+            alias_list = self._hub.list_ledger_alias()
+            for alias in alias_list:
+                ledger = self._hub.get_ledger(alias)
+                name   = self._hub.get_name(alias)
+                print(f"\n── {name} ──")
+                for seg in ledger.segments:
+                    print(f"  {seg.name}")
+        self._run(run)
+
+    def do_print(self, arg):
+        """print <账目别名> [分段名]"""
         def run():
             parts = _parse(arg)
-            _require(parts, 1, "show <账本别名> [分段名]")
+            _require(parts, 1, "print <账目别名> [分段名]")
             ledger = self._hub.get_ledger(parts[0])
 
             if len(parts) == 1:
@@ -136,86 +107,72 @@ class Shell(cmd.Cmd):
                 print(seg.to_raw())
         self._run(run)
 
-    def do_summary(self, arg):
-        """summary [<账本别名> [分段名|all]]"""
+    def do_aggr(self, arg):
+        """aggr [<账目别名> [分段名]]"""
         def run():
             parts = _parse(arg)
 
             if not parts:
-                for name in self._hub.list_ledger_alias():
-                    self._print_ledger_summary(name)
+                for alias in self._hub.list_ledger_alias():
+                    self._engine.show_ledger_aggr(alias)
                 return
 
-            name   = parts[0]
-            ledger = self._hub.get_ledger(name)
+            alias = parts[0]
+            ledger = self._hub.get_ledger(alias)
 
-            if len(parts) == 1 or parts[1].lower() == "all":
-                self._print_ledger_summary(name)
+            if len(parts) == 1:
+                self._engine.show_ledger_aggr(alias)
             else:
-                self._print_section_summary(ledger, parts[1])
+                self._engine.show_segment_aggr(alias, parts[1])
         self._run(run)
 
-    # ======================================== #
-    #    校验命令
-    # ======================================== #
+    # ----- 校验 -------------------- #
 
     def do_check(self, arg):
-        """check [账本]
-        验证汇总行数值是否正确，不带参数则验证所有账本
-        """
+        """check [账目]"""
         def run():
-            parts  = _parse(arg)
-            names  = [parts[0]] if parts else self._hub.list_ledger_alias()
-            ok_all = True
+            parts = _parse(arg)
+            alias_list = [parts[0]] if parts else self._hub.list_ledger_alias()
 
-            for name in names:
-                ledger = self._hub.get_ledger(name)
+            for alias in alias_list:
+                ledger = self._hub.get_ledger(alias)
+                name = self._hub.get_name(alias)
                 for seg in ledger.segments:
-                    ok   = seg.validate_summary()
+                    ok = seg.validate_aggr()
                     flag = (f"{Fore.GREEN}OK{Style.RESET_ALL}"
                             if ok else
                             f"{Fore.RED}FAIL{Style.RESET_ALL}")
-                    if not ok:
-                        ok_all = False
                     print(f"  [{flag}] {name} / {seg.name}")
-
-            if ok_all:
-                print("  全部校验通过")
         self._run(run)
 
-    # ======================================== #
-    #    操作命令
-    # ======================================== #
+    # ----- 操作 -------------------- #
 
     def do_rebuild(self, arg):
-        """rebuild [账本]
-        重建汇总行数值，不带参数则重建所有账本
-        """
+        """rebuild [账目]"""
         def run():
             parts = _parse(arg)
-            names = [parts[0]] if parts else self._hub.list_ledger_alias()
+            alias = parts[0] if parts and parts[0] in self._hub.list_ledger_alias() else None
 
-            for name in names:
-                self._hub.get_ledger(name).rebuild_ledger()
-                print(f"  {name} 重建完成")
-
-            self._hub.get_sum_ledger().rebuild_summary()
-            print(f"  汇总账本重建完成")
+            if not parts:
+                self._engine.rebuild()
+            elif parts[0] == "sum":
+                self._hub.get_sum_ledger().rebuild_ledger()
+            elif parts[0] in self._hub.list_ledger_alias():
+                self._hub.get_ledger(alias).rebuild_ledger()
+            else:
+                raise ValueError(f"未知账目: {parts[0]}")
         self._run(run)
 
     def do_sync(self, arg):
-        """sync <month|life|collect|all>
-        同步数据：
-          month — 将DGtler/KEEP/TB月账汇总写入life账本
-          life  — 将life账本月度数据写入汇总账本
-          collect — 将DK/NS/travel/BOX项目账写入汇总账本
-          all   — 依次执行 month → life → collect
-        """
+        """sync <month|life|collect>"""
         def run():
             parts = _parse(arg)
-            _require(parts, 1, "sync <month|life|collect|all>")
+            #_require(parts, 1, "sync <month|life|collect>")
 
-            if parts[0] == "month":
+            if not parts:
+                self._engine.sync_all()
+                print(f"  所有账目已同步")
+            elif parts[0] == "month":
                 self._engine.sync_month()
                 print(f"  Month 已同步")
             elif parts[0] == "life":
@@ -224,13 +181,6 @@ class Shell(cmd.Cmd):
             elif parts[0] == "collect":
                 self._engine.sync_collect()
                 print(f"  Collect 已同步")
-            elif parts[0] == "all":
-                self._engine.sync_month()
-                print(f"  [1/3] Month 已同步")
-                self._engine.sync_life()
-                print(f"  [2/3] Life 已同步")
-                self._engine.sync_collect()
-                print(f"  [3/3] Collect 已同步")
             else:
                 raise ValueError(f"未知同步目标: {parts[0]}")
         self._run(run)
@@ -242,49 +192,40 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_save(self, arg):
-        """save [账本]
-        保存指定账本，不带参数则保存所有账本
-        """
+        """save [账目]"""
         def run():
             parts = _parse(arg)
             if parts:
                 if parts[0] == "sum":
                     self._hub.save_sum_ledger()
-                    print(f"  汇总账本已保存")
+                    print(f"  汇总账目已保存")
                 else:
                     self._hub.save_ledger(parts[0])
                     print(f"  {parts[0]} 已保存")
             else:
                 self._hub.save_all()
-                print("  所有账本已保存")
         self._run(run)
 
     def do_reload(self, arg):
-        """reload [账本]
-        重载指定账本，不带参数则重载所有账本
-        """
+        """reload [账目]"""
         def run():
             parts = _parse(arg)
             if parts:
                 if parts[0] == "sum":
                     self._hub.reload_sum_ledger()
-                    print(f"  汇总账本已重载")
+                    print(f"  汇总账目已重载")
                 else:
                     self._hub.reload_ledger(parts[0])
                     print(f"  {parts[0]} 已重载")
             else:
                 self._hub.reload_all()
-                print("  所有账本已重载")
+                print("  所有账目已重载")
         self._run(run)
 
-    # ======================================== #
-    #    Debug命令
-    # ======================================== #
+    # ----- Debug -------------------- #
 
     def do_dump(self, arg):
-        """dump [账本|sum]
-        打印账本内部结构，不带参数则打印所有账本
-        """
+        """dump [账目]"""
         def run():
             parts = _parse(arg)
             if parts and parts[0] == "sum":
@@ -298,9 +239,7 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_repr(self, arg):
-        """repr [账本|sum]
-        打印账本repr，不带参数则打印所有账本
-        """
+        """repr [账目]"""
         def run():
             parts = _parse(arg)
             if parts and parts[0] == "sum":
@@ -308,36 +247,34 @@ class Shell(cmd.Cmd):
             elif parts:
                 print(self._hub.get_ledger(parts[0]).__repr__())
             else:
-                for name in self._hub.list_ledger_alias():
-                    print(f"\nLedger: {name}")
-                    print(self._hub.get_ledger(name).__repr__())
+                name = self._hub.get_name("sum")
+                print(f"\n── {name} ──")
+                print(self._hub.get_sum_ledger().__repr__())
+                for alias in self._hub.list_ledger_alias():
+                    name = self._hub.get_name(alias)
+                    print(f"\n── {name} ──")
+                    print(self._hub.get_ledger(alias).__repr__())
         self._run(run)
 
     def do_test(self, _):
-        """test
-        测试输出
-        """
+        """test"""
         def run():
             month_list = self._engine._get_month_list()
             print(f"Month List: {month_list}")
         self._run(run)
 
-    # ======================================== #
-    #    退出命令
-    # ======================================== #
+    # ----- 退出 -------------------- #
 
     def do_quit(self, _):
-        """quit  退出程序"""
+        """quit"""
         return self._quit()
 
     def do_q(self, _):
-        """q  退出程序"""
-        return self._quit()
-
-    def do_exit(self, _):
-        """exit  退出程序"""
+        """q"""
         return self._quit()
 
     def _quit(self):
         print("Bye!")
         return True
+    
+    # ----- END -------------------- #

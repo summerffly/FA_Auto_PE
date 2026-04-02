@@ -2,7 +2,7 @@
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
 # LastEdit:    2026-03-30
-# Description: Life账本实现
+# Description: Life账目实现
 
 from dataclasses import dataclass, field
 from typing import List
@@ -24,7 +24,7 @@ class LifeLedger(BaseLedger):
 
     def rebuild_ledger(self):
         for seg in self.segments:
-            seg.rebuild_summary()
+            seg.rebuild_aggr()
 
     def get_month_income(self, month_no: str) -> int:
         """ 获取指定月的收入总计 """
@@ -46,6 +46,14 @@ class LifeLedger(BaseLedger):
             if isinstance(seg, LifeSection) and seg.month_no == month_no:
                 return seg.get_balance()
         return 0
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"header={len(self.header)}, "
+            f"segments={len(self.segments)}, "
+            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
+        )
 
 
 # ======================================== #
@@ -69,10 +77,10 @@ class _LifeLedgerParser(_BaseLedgerParser):
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
             if not isinstance(section, LifeSection):
-                print(f"[警告] Life账本中创建了非LifeSection: {section.__class__.__name__}")
+                print(f"[警告] Life账目中创建了非LifeSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Life账本中出现其他分段类型: {self.curr_head.type}")
+            print(f"[警告] Life账目中出现其他分段类型: {self.curr_head.type}")
             pass
         
         # 重置状态

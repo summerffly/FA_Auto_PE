@@ -2,7 +2,7 @@
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
 # LastEdit:    2026-03-30
-# Description: Month账本实现
+# Description: Month账目实现
 
 from dataclasses import dataclass
 from typing import List
@@ -24,14 +24,22 @@ class MonthLedger(BaseLedger):
 
     def rebuild_ledger(self):
         for seg in self.segments:
-            seg.rebuild_summary()
+            seg.rebuild_aggr()
 
     def get_month_total(self, month: str) -> int:
         """ 获取月度总计 """
         for seg in self.segments:
             if seg.name == month:
-                return seg.get_summary()
+                return seg.get_aggr()
         return 0
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"header={len(self.header)}, "
+            f"segments={len(self.segments)}, "
+            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
+        )
 
 
 # ======================================== #
@@ -55,10 +63,10 @@ class _MonthLedgerParser(_BaseLedgerParser):
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
             if not isinstance(section, MonthSection):
-                print(f"[警告] Month账本中创建了非MonthSection: {section.__class__.__name__}")
+                print(f"[警告] Month账目中创建了非MonthSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Month账本中出现其他分段类型: {self.curr_head.type}")
+            print(f"[警告] Month账目中出现其他分段类型: {self.curr_head.type}")
             pass
 
         # 重置状态

@@ -1,27 +1,22 @@
 # File:        Segment/Summary.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-25
-# LastEdit:    2026-03-31
+# LastEdit:    2026-04-01
 # Description: Summary分段模块
 
 from dataclasses import dataclass, field
 from typing import List, Optional
+
 from Line import Line, LineType
+from Line import LineRegex as RE
 
 
 # ======================================== #
-#    块一：历史财富汇总
+#    WealthBlock
 # ======================================== #
 
 @dataclass
 class WealthBlock:
-    """
-    对应MD结构：
-    ```
-    初始财富 : -122690
-    当前财富 : -137580
-    ```
-    """
     lines: List[Line]
 
     def _get_line(self, keyword: str) -> Optional[Line]:
@@ -58,18 +53,11 @@ class WealthBlock:
 
 
 # ======================================== #
-#    块二：特殊资金流水
+#    ExtraBlock
 # ======================================== #
 
 @dataclass
-class SpecialBlock:
-    """
-    对应MD结构：
-    `- 4900` 公寓押金
-    `+ 200000` HOME注资
-    `- 20000` HOME派息
-    `+ 50000` 蚂蚁借呗
-    """
+class ExtraBlock:
     lines: List[Line]
 
     @property
@@ -77,12 +65,12 @@ class SpecialBlock:
         return [ln for ln in self.lines if ln.type == LineType.UNIT]
 
     def get_total(self) -> int:
-        """ 特殊支出总和 """
+        """ 额外支出总和 """
         return sum(ln.value for ln in self.unit_lines)
 
 
 # ======================================== #
-#    块三：资产分配明细
+#    AllocationBlock
 # ======================================== #
 
 @dataclass
@@ -167,17 +155,20 @@ class SummarySection:
     lines: List[Line] = field(default_factory=list)
 
     wealth_block: Optional[WealthBlock] = None
-    special_block: Optional[SpecialBlock] = None
+    extra_block: Optional[ExtraBlock] = None
     allocation_block: Optional[AllocationBlock] = None
+
+    def __post_init__(self):        
+        self._name = ""
+        self._parse_title()
+
+    def _parse_title(self) -> str:
+        if m := RE.SUMMARY_TITLE.match(self.title_line.raw):
+            self._name = m.group(1)
 
     @property
     def name(self) -> str:
-        if self.title_line is None:
-            return ""
-        raw = self.title_line.raw.strip()
-        if raw.startswith("## "):
-            return raw[3:].strip()
-        return raw
+        return self._name
 
     # ----- 数据访问 -------------------- #
 
@@ -194,7 +185,7 @@ class SummarySection:
     @property
     def special_total(self) -> int:
         """ 特殊支出总和 """
-        return self.special_block.get_total() if self.special_block else 0
+        return self.extra_block.get_total() if self.extra_block else 0
 
     @property
     def disposable_wealth(self) -> int:
@@ -231,58 +222,64 @@ class SummarySection:
 
     # ----- 序列化 -------------------- #
 
+    def _parse_sub_blocks(self) -> None:
+        lines = self.lines
+        i, n = 0, len(lines)
+
+        # ---------- seg1：找第一个 [DELIM...DELIM] ----------
+        block_lines_1: list[Line] = None
+        while i < n and lines[i].type != LineType.DELIMITER:
+            i += 1
+        if i < n:                          # 找到开头 DELIMITER
+            start = i
+            i += 1
+            while i < n and lines[i].type != LineType.DELIMITER:
+                i += 1
+            if i < n:                      # 找到结尾 DELIMITER
+                block_lines_1 = lines[start : i + 1]
+                i += 1
+        self._assign_wealth_blocks(block_lines_1)
+
+        # ---------- seg2：到下一个 DELIMITER 之前 ----------
+        seg2_start = i
+        while i < n and lines[i].type != LineType.DELIMITER:
+            i += 1
+        block_lines_2 = lines[seg2_start : i]
+        self._assign_extra_block(block_lines_2)
+
+        # ---------- seg3：剩余的 [DELIM...DELIM] ----------
+        block_lines_3: list[Line] = None
+        if i < n:                          # 当前位置是开头 DELIMITER
+            start = i
+            i += 1
+            while i < n and lines[i].type != LineType.DELIMITER:
+                i += 1
+            if i < n:                      # 找到结尾 DELIMITER
+                block_lines_3 = lines[start : i + 1]
+        self._assign_allocation_blocks(block_lines_3)
+
+
+    def _assign_wealth_blocks(self, block_lines: list[Line]) -> None:
+        if block_lines is not None:
+            self.wealth_block = WealthBlock(lines=block_lines)
+    
+
+    def _assign_extra_block(self, block_lines: list[Line]) -> None:
+        if any(ln.type != LineType.BLANK for ln in block_lines):
+            self.extra_block = ExtraBlock(lines=block_lines)
+
+
+    def _assign_allocation_blocks(self, block_lines: list[Line]) -> None:
+        if block_lines is not None:
+            self.allocation_block = AllocationBlock(lines=block_lines)
+
+
     def to_lines(self) -> List[Line]:
         out = []
         if self.title_line:
             out.append(self.title_line)
         out.extend(self.lines)
         return out
-
-    def _parse_sub_blocks(self) -> None:
-        """
-        按 DELIMITER 边界切分 self.lines，
-        依次填入 wealth_block / special_block / allocation_block
-        """
-        segments: List[List[Line]] = []
-        is_delimited: List[bool] = []
-
-        buf: List[Line] = []
-        inside_delim = False
-
-        for ln in self.lines:
-            if ln.type == LineType.DELIMITER:
-                if not inside_delim:
-                    if buf:
-                        segments.append(buf)
-                        is_delimited.append(False)
-                        buf = []
-                    buf = [ln]
-                    inside_delim = True
-                else:
-                    buf.append(ln)
-                    segments.append(buf)
-                    is_delimited.append(True)
-                    buf = []
-                    inside_delim = False
-            else:
-                buf.append(ln)
-
-        if buf:
-            segments.append(buf)
-            is_delimited.append(False)
-
-        delim_idx = 0
-        for seg, delimited in zip(segments, is_delimited):
-            if delimited:
-                if delim_idx == 0:
-                    self.wealth_block = WealthBlock(lines=seg)
-                elif delim_idx == 1:
-                    self.allocation_block = AllocationBlock(lines=seg)
-                delim_idx += 1
-            else:
-                non_blank = [l for l in seg if l.type != LineType.BLANK]
-                if non_blank:
-                    self.special_block = SpecialBlock(lines=seg)
 
 
 # ======================================== #

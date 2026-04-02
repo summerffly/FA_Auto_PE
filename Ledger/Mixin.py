@@ -1,14 +1,11 @@
 # File:        Ledger/Mixin.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-31
-# LastEdit:    2026-03-31
+# LastEdit:    2026-04-01
 # Description: Ledger通用混入基类
 
 from __future__ import annotations
-from typing import List, Optional
-
 from Line import Line
-from Segment import TailBlock
 
 
 class LedgerMixin:
@@ -17,14 +14,14 @@ class LedgerMixin:
 
     @classmethod
     def parse_file(cls, filepath: str, encoding: str = "utf-8"):
-        """ 从文件解析账本 """
+        """ 从文件解析账目 """
         with open(filepath, "r", encoding=encoding) as f:
             text = f.read()
         return cls.parse_text(text)
 
     @classmethod
     def parse_text(cls, text: str):
-        """ 从文本解析账本 """
+        """ 从文本解析账目 """
         raw_lines = text.splitlines()
         lines = [Line.parse(raw) for raw in raw_lines]
         return cls.parse_lines(lines)
@@ -32,7 +29,7 @@ class LedgerMixin:
     @classmethod
     def parse_lines(cls, lines):
         """ 子类实现方法 """
-        """ 从Line对象列表解析账本 """
+        """ 从Line对象列表解析账目 """
         raise NotImplementedError(f"{cls.__name__} 未实现 parse_lines()")
 
     # ----- 序列化方法 -------------------- #

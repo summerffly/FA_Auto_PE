@@ -53,7 +53,7 @@ def main():
         hub.validate()
         print(f"\n--------------------------------------------------")
     except Exception as e:
-        print(f"{Fore.RED}[!]{Style.RESET_ALL} 账本加载失败: {e}")
+        print(f"{Fore.RED}[!]{Style.RESET_ALL} 账目加载失败: {e}")
         return
     
     # 启动Shell

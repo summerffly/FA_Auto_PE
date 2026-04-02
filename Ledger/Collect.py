@@ -2,7 +2,7 @@
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
 # LastEdit:    2026-04-01
-# Description: Collect账本实现
+# Description: Collect账目实现
 
 from dataclasses import dataclass
 from typing import List, Optional
@@ -25,7 +25,7 @@ class CollectLedger(BaseLedger):
     def rebuild_ledger(self):
         # 重建每个分段
         for seg in self.segments:
-            seg.rebuild_summary()
+            seg.rebuild_aggr()
         
         # 重建总计
         if self.total:
@@ -37,7 +37,7 @@ class CollectLedger(BaseLedger):
         if self.total is None:
             return None
         else:
-            return self.total.value
+            return self.total.get_total()
 
     def rebuild_total(self):
         """ 重建总计 """
@@ -45,7 +45,7 @@ class CollectLedger(BaseLedger):
             return
 
         total_sum = self.get_all_segments_sum()
-        self.total.set_value(total_sum)
+        self.total.set_total(total_sum)
 
     def validate_total(self) -> bool:
         """验证总计是否正确"""
@@ -58,6 +58,15 @@ class CollectLedger(BaseLedger):
         
         all_sections_sum = self.get_all_segments_sum()
         return total_value == all_sections_sum
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"header={len(self.header)}, "
+            f"segments={len(self.segments)}, "
+            f"total={self.total.name if self.total else 'None'}, "
+            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
+        )
 
 
 # ======================================== #
@@ -84,10 +93,10 @@ class _CollectLedgerParser(_BaseLedgerParser):
             section = make_section(self.curr_head, self.curr_lines)
             # 验证类型
             if not isinstance(section, CollectSection):
-                print(f"[警告] Title账本中创建了非CollectSection: {section.__class__.__name__}")
+                print(f"[警告] Title账目中创建了非CollectSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Title账本中出现其他分段类型: {self.curr_head.type}")
+            print(f"[警告] Title账目中出现其他分段类型: {self.curr_head.type}")
             pass
         
         # 重置状态

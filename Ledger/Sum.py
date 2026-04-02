@@ -2,7 +2,7 @@
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
 # LastEdit:    2026-04-01
-# Description: 汇总账本对象
+# Description: 汇总账目对象
 
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -62,7 +62,7 @@ class SumLedger(LedgerMixin):
         """ 修改指定 Collect 分段数值 """
         seg = self.get_collect_segment(name)
         if seg is not None:
-            seg.set_value(new_value)
+            seg.set_aggr(new_value)
 
     def mod_life_segment_value(self, month_no: str, income_value: int, expense_value: int, balance_value: int):
         """ 修改指定月份 Life 分段数值 """
@@ -74,17 +74,17 @@ class SumLedger(LedgerMixin):
 
     def get_segments_total(self) -> int:
         """ 所有分段的总和 """
-        collect_total = sum(seg.value for seg in self.collect_segments)
+        collect_total = sum(seg.get_aggr() for seg in self.collect_segments)
         life_total = sum(seg.balance for seg in self.life_segments)
         return collect_total + life_total
 
-    def rebuild_summary(self):
-        """ 重建 Summary 的所有计算值 """
+    def rebuild_ledger(self):
+        """ 重建 Ledger 的所有计算值 """
         if self.summary:
             segments_total = self.get_segments_total()
             self.summary.rebuild(segments_total)
 
-    def validate_summary(self) -> bool:
+    def validate_ledger(self) -> bool:
         """ 验证 Summary 的所有计算值 """
         if self.summary is None:
             return True
@@ -103,19 +103,19 @@ class SumLedger(LedgerMixin):
         all_lines: List[Line] = []
         all_lines.extend(self.header)
         for seg in self.collect_segments:
-            all_lines.extend(seg.lines)
+            all_lines.extend(seg.to_lines())
         for seg in self.life_segments:
-            all_lines.extend(seg.lines)
+            all_lines.extend(seg.to_lines())
         if self.summary:
             all_lines.extend(self.summary.to_lines())
         if self.tail:
-            all_lines.extend(self.tail.lines)
+            all_lines.extend(self.tail.to_lines())
         return all_lines
 
     # ----- Debug -------------------- #
 
     def validate_struct(self) -> List[str]:
-        """ 验证账本结构，返回错误信息列表 """
+        """ 验证账目结构，返回错误信息列表 """
         errors = []
 
         # 检查重复的分段名称
@@ -147,14 +147,14 @@ class SumLedger(LedgerMixin):
         print(f"collect_segments : {len(self.collect_segments)}")
         print(f"life_segments    : {len(self.life_segments)}")
         print(f"summary          : {self.summary.name if self.summary else 'None'}")
-        print(f"tail             : {len(self.tail.lines) if self.tail else 0}")
+        print(f"tail             : {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
         for i, seg in enumerate(self.collect_segments, 1):
             print(f"[CollectSegment {i}] {seg.name}")
             print(f"   class     : {seg.__class__.__name__}")
             print(f"   summaries : {len(seg.aggr_lines)}")
-            print(f"   value     : {'+' if seg.value >= 0 else ''}{seg.value}")
+            print(f"   value     : {'+' if seg.get_aggr() >= 0 else ''}{seg.get_aggr()}")
             print()
 
         for i, seg in enumerate(self.life_segments, 1):
@@ -168,7 +168,10 @@ class SumLedger(LedgerMixin):
 
         if self.summary:
             print(f"[Summary] {self.summary.name}")
-            print(f"   lines     : {len(self.summary.lines)}")
+            print(f"   class     : {self.summary.__class__.__name__}")
+            print(f"   wealth    : {len(self.summary.wealth_block.lines)}")
+            print(f"   extra     : {len(self.summary.extra_block.lines)}")
+            print(f"   allocation: {len(self.summary.allocation_block.lines)}")
             print()
 
     def __repr__(self):
@@ -178,7 +181,7 @@ class SumLedger(LedgerMixin):
             f"collect_segments={len(self.collect_segments)}, "
             f"life_segments={len(self.life_segments)}, "
             f"summary={self.summary.name if self.summary else 'None'}, "
-            f"tail={len(self.tail.lines) if self.tail else 0})"
+            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )
 
 

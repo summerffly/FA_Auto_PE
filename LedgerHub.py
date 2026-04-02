@@ -2,7 +2,7 @@
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-23
 # LastEdit:    2026-04-01
-# Description: 所有账本合集
+# Description: 所有账目合集
 
 from __future__ import annotations
 from dataclasses import dataclass
@@ -28,7 +28,7 @@ class LedgerEntry:
     alias:    str                    # 快捷命令
     name:     str                    # 正式名称
     filepath: str                    # 文件路径
-    ledger:   Optional[BaseLedger]   # 账本对象
+    ledger:   Optional[BaseLedger]   # 账目对象
 
 
 # ======================================== #
@@ -37,7 +37,7 @@ class LedgerEntry:
 
 class LedgerHub:
 
-    # 账本注册表
+    # 账目注册表
     # 顺序即加载顺序
     _SUM_REGISTRY = ("sum", "FA_SUM", "FA_SUM.md")
     _REGISTRY = [
@@ -65,7 +65,7 @@ class LedgerHub:
         self._initialized = True
 
     def _load_all(self):
-        """按注册表加载所有账本文件"""
+        """按注册表加载所有账目文件"""
         alias, name, filepath = self._SUM_REGISTRY
         self.load_sum_ledger(alias, name, filepath)
 
@@ -99,7 +99,7 @@ class LedgerHub:
     # ----- 验证 -------------------- #
 
     def validate(self):
-        """验证所有账本结构"""
+        """验证所有账目结构"""
         if self._sum_entry is not None:
             errors = self._sum_entry.ledger.validate_struct()
             label  = self._sum_entry.name
@@ -120,7 +120,7 @@ class LedgerHub:
     # ----- 访问 -------------------- #
 
     def _get_any_entry(self, alias: str) -> Optional[LedgerEntry]:
-        """统一查找sum和普通账本 找不到返回None"""
+        """统一查找sum和普通账目 找不到返回None"""
         if alias == "sum":
             return self._sum_entry
         return self._entries.get(alias)
@@ -128,13 +128,13 @@ class LedgerHub:
     def get_sum_entry(self) -> LedgerEntry:
         entry = self._get_any_entry("sum")
         if entry is None:
-            raise RuntimeError("汇总账本未加载")
+            raise RuntimeError("汇总账目未加载")
         return entry
 
     def get_entry(self, alias: str) -> LedgerEntry:
         entry = self._get_any_entry(alias)
         if entry is None:
-            raise KeyError(f"账本不存在: {alias}")
+            raise KeyError(f"账目不存在: {alias}")
         return entry
 
     def get_sum_ledger(self) -> SumLedger:
@@ -152,21 +152,21 @@ class LedgerHub:
         return entry.filepath if entry else None
 
     def list_ledger_alias(self) -> list[str]:
-        """返回所有账本alias列表"""
+        """返回所有账目alias列表"""
         return list(self._entries.keys())
 
     # ----- 重载 -------------------- #
 
     def reload_sum_ledger(self) -> SumLedger:
         if self._sum_entry is None:
-            raise RuntimeError("汇总账本未加载")
+            raise RuntimeError("汇总账目未加载")
         ledger = SumLedger.parse_file(self._sum_entry.filepath)
         self._sum_entry.ledger = ledger
         return ledger
 
     def reload_ledger(self, alias: str) -> BaseLedger:
         if alias not in self._entries:
-            raise KeyError(f"账本不存在: {alias}")
+            raise KeyError(f"账目不存在: {alias}")
         entry  = self._entries[alias]
         ledger = create_ledger_from_file(entry.filepath)
         entry.ledger = ledger
@@ -183,11 +183,11 @@ class LedgerHub:
 
     def save_sum_ledger(self, filepath: str | None = None):
         if self._sum_entry is None:
-            raise RuntimeError("汇总账本未加载")
+            raise RuntimeError("汇总账目未加载")
 
         target = filepath or self._sum_entry.filepath
         if not target:
-            raise ValueError("汇总账本没有可用的保存路径")
+            raise ValueError("汇总账目没有可用的保存路径")
 
         self._sum_entry.ledger.refresh_timestamp()
         self._sum_entry.ledger.save(target)
@@ -197,7 +197,7 @@ class LedgerHub:
 
         target = filepath or entry.filepath
         if not target:
-            raise ValueError(f"账本 {alias} 没有可用的保存路径")
+            raise ValueError(f"账目 {alias} 没有可用的保存路径")
 
         entry.ledger.refresh_timestamp()
         entry.ledger.save(target)
@@ -205,7 +205,9 @@ class LedgerHub:
     def save_all(self):
         if self._sum_entry is not None:
             self.save_sum_ledger()
+            print(f"  保存账目: {self._sum_entry.name:<9} -> {self._sum_entry.filepath}")
         
         for entry in self._entries.values():
             entry.ledger.refresh_timestamp()
             entry.ledger.save(entry.filepath)
+            print(f"  保存账目: {entry.name:<9} -> {entry.filepath}")

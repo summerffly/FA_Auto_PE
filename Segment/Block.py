@@ -1,7 +1,7 @@
-# File:        Block.py
+# File:        Segment/Block.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-03-30
+# LastEdit:    2026-04-01
 # Description: Block分段模块
 
 from abc import ABC, abstractmethod
@@ -20,8 +20,7 @@ from Line import Line, LineType
 class BaseBlock(ABC):
     block_lines: List[Line] = field(default_factory=list)
 
-    @property
-    def lines(self) -> List[Line]:
+    def to_lines(self) -> List[Line]:
         return self.block_lines
 
     # ----- 抽象方法 -------------------- #

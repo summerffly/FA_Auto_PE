@@ -13,7 +13,7 @@ from .Collect import CollectLedger
 
 
 def detect_ledger_type(lines: list) -> str:
-    """ 检测账本类型 """
+    """ 检测账目类型 """
     has_life_title = False
     has_month_title = False
     has_collect_title = False
@@ -41,7 +41,7 @@ def detect_ledger_type(lines: list) -> str:
 
 
 def create_ledger_from_lines(lines) -> Union[LifeLedger, MonthLedger, CollectLedger]:
-    """ 从Line对象列表创建账本 """
+    """ 从Line对象列表创建账目 """
     ledger_type = detect_ledger_type(lines)
     
     if ledger_type == 'life':
@@ -53,14 +53,14 @@ def create_ledger_from_lines(lines) -> Union[LifeLedger, MonthLedger, CollectLed
 
 
 def create_ledger_from_text(text: str) -> Union[LifeLedger, MonthLedger, CollectLedger]:
-    """ 从文本创建账本 """
+    """ 从文本创建账目 """
     raw_lines = text.splitlines()
     lines = [Line.parse(raw) for raw in raw_lines]
     return create_ledger_from_lines(lines)
 
 
 def create_ledger_from_file(filepath: str, encoding: str = "utf-8") -> Union[LifeLedger, MonthLedger, CollectLedger]:
-    """ 从文件创建账本 """
+    """ 从文件创建账目 """
     with open(filepath, "r", encoding=encoding) as f:
         text = f.read()
     return create_ledger_from_text(text)

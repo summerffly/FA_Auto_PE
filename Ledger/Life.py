@@ -22,9 +22,9 @@ class LifeLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_LifeLedgerParser":
         return _LifeLedgerParser(lines, ledger=LifeLedger())
 
-    def rebuild_ledger(self):
+    def recalculate(self):
         for seg in self.segments:
-            seg.rebuild_aggr()
+            seg.recalculate_sum()
 
     def get_month_income(self, month_no: str) -> int:
         """ 获取指定月的收入总计 """

@@ -22,15 +22,15 @@ class MonthLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_MonthLedgerParser":
         return _MonthLedgerParser(lines, ledger=MonthLedger())
 
-    def rebuild_ledger(self):
+    def recalculate(self):
         for seg in self.segments:
-            seg.rebuild_aggr()
+            seg.recalculate_sum()
 
     def get_month_total(self, month: str) -> int:
         """ 获取月度总计 """
         for seg in self.segments:
             if seg.name == month:
-                return seg.get_aggr()
+                return seg.get_sum()
         return 0
 
     def __repr__(self):

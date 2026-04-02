@@ -1,7 +1,7 @@
 # File:        Line.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-14
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-02
 # Description: Markdown单行解析模块
 
 import re
@@ -25,12 +25,12 @@ class LineType(Enum):
     MONTH_TITLE   = auto()
     COLLECT_TITLE = auto()
     TOTAL_TITLE   = auto()
-    SUMMARY_TITLE = auto()
+    GENERAL_TITLE = auto()
 
     UNIT          = auto()
     PRIMARY       = auto()
-    MONTH_AGGR    = auto()
-    SECTION_AGGR  = auto()
+    MONTH_SUM    = auto()
+    SECTION_SUM  = auto()
     TOTAL         = auto()
 
     UNKNOWN       = auto()
@@ -61,17 +61,17 @@ class LineRegex:
     COLLECT_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!.*\.M\d{2}$)(.+)$')
     # ### Total
     TOTAL_TITLE: ClassVar[re.Pattern] = re.compile(r'^### (Total)$')
-    # ### Summary
-    SUMMARY_TITLE: ClassVar[re.Pattern] = re.compile(r'^### (Summary)$')
+    # ### General
+    GENERAL_TITLE: ClassVar[re.Pattern] = re.compile(r'^### (General)$')
 
     # `- 50` 猫罐头
     UNIT: ClassVar[re.Pattern] = re.compile(r'^`([+-])[ ]?(\d+)` (.*)$')
     # 币安货币 : +80000
     PRIMARY: ClassVar[re.Pattern] = re.compile(r'^(?!Total)(?!>)(.+) : ([+-])(\d+)$')
     # > 02月收入 : +1030
-    MONTH_AGGR: ClassVar[re.Pattern] = re.compile(r'^> (\d{2}.+) : ([+-])(\d+)$')
+    MONTH_SUM: ClassVar[re.Pattern] = re.compile(r'^> (\d{2}.+) : ([+-])(\d+)$')
     # > +100
-    SECTION_AGGR: ClassVar[re.Pattern] = re.compile(r'^> ([+-])(\d+)$')
+    SECTION_SUM: ClassVar[re.Pattern] = re.compile(r'^> ([+-])(\d+)$')
     # Total : +820
     TOTAL: ClassVar[re.Pattern] = re.compile(r'^Total : ([+-])(\d+)$')
 
@@ -79,9 +79,10 @@ class LineRegex:
     # 金额层级
     UNIT      ->  基础项
     PRIMARY   ->  主级项
-    AGGR      ->  合计项
+    SUM       ->  合计项
+    AGGR      ->    /
     TOTAL     ->  总计项
-    SUMMARY   ->  总结项
+    GENERAL   ->  总结项
     """
 
 
@@ -149,8 +150,8 @@ class Line:
         if RE.TOTAL_TITLE.match(s):
             self.type = LineType.TOTAL_TITLE
             return
-        if RE.SUMMARY_TITLE.match(s):
-            self.type = LineType.SUMMARY_TITLE
+        if RE.GENERAL_TITLE.match(s):
+            self.type = LineType.GENERAL_TITLE
             return
 
         m = RE.UNIT.match(s)
@@ -167,16 +168,16 @@ class Line:
             self.content = m.group(1)
             return
 
-        m = RE.MONTH_AGGR.match(s)
+        m = RE.MONTH_SUM.match(s)
         if m:
-            self.type = LineType.MONTH_AGGR
+            self.type = LineType.MONTH_SUM
             self.value = int(m.group(3)) if m.group(2) == "+" else -int(m.group(3))
             self.content = m.group(1)
             return
 
-        m = RE.SECTION_AGGR.match(s)
+        m = RE.SECTION_SUM.match(s)
         if m:
-            self.type = LineType.SECTION_AGGR
+            self.type = LineType.SECTION_SUM
             self.value = int(m.group(2)) if m.group(1) == "+" else -int(m.group(2))
             return
 
@@ -202,11 +203,11 @@ class Line:
             sign = "+" if self.value > 0 else "-"
             return f"{self.content} : {sign}{abs(self.value)}"
         
-        if self.type == LineType.MONTH_AGGR:
+        if self.type == LineType.MONTH_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"> {self.content} : {sign}{abs(self.value)}"
         
-        if self.type == LineType.SECTION_AGGR:
+        if self.type == LineType.SECTION_SUM:
             sign = "+" if self.value > 0 else "-"
             return f"> {sign}{abs(self.value)}"
         
@@ -231,8 +232,8 @@ class Line:
         return self.type in (
             LineType.UNIT, 
             LineType.PRIMARY, 
-            LineType.MONTH_AGGR, 
-            LineType.SECTION_AGGR, 
+            LineType.MONTH_SUM, 
+            LineType.SECTION_SUM, 
             LineType.TOTAL
         )
 

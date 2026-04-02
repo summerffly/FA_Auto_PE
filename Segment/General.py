@@ -1,8 +1,8 @@
-# File:        Segment/Summary.py
+# File:        Segment/General.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-25
 # LastEdit:    2026-04-01
-# Description: Summary分段模块
+# Description: General分段模块
 
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -47,7 +47,7 @@ class WealthBlock:
         """ 根据初始财富和segments总和计算当前财富 """
         return self.initial_wealth + segments_total
 
-    def validate(self, segments_total: int) -> bool:
+    def checksum(self, segments_total: int) -> bool:
         """ 验证当前财富是否正确 """
         return self.current_wealth == self.calc_current_wealth(segments_total)
 
@@ -94,9 +94,9 @@ class AllocationBlock:
 
     def set_disposable_wealth(self, value: int):
         """ 更新可支配财富 """
-        aggr_lines = self._get_primary_lines()
-        if aggr_lines:
-            aggr_lines[0].value = value
+        lines = self._get_primary_lines()
+        if lines:
+            lines[0].value = value
 
     @property
     def primary_line(self) -> Optional[Line]:
@@ -130,13 +130,13 @@ class AllocationBlock:
         """ 计算主分配行的值（可支配财富扣除固定分配后的剩余）"""
         return self.disposable_wealth - self.get_secondary_total()
 
-    def rebuild_allocation(self):
+    def recalculate(self):
         """ 重建主分配行的值 """
         ln = self.primary_line
         if ln:
             ln.value = self.calc_primary_value()
 
-    def validate(self, current_wealth: int, special_total: int) -> bool:
+    def checksum(self, current_wealth: int, special_total: int) -> bool:
         """ 验证可支配财富是否正确 """
         expected = self.calc_disposable_wealth(current_wealth, special_total)
         return (
@@ -146,11 +146,11 @@ class AllocationBlock:
 
 
 # ======================================== #
-#    SummarySection
+#    GeneralSection
 # ======================================== #
 
 @dataclass
-class SummarySection:
+class GeneralSection:
     title_line: Optional[Line] = None
     lines: List[Line] = field(default_factory=list)
 
@@ -163,7 +163,7 @@ class SummarySection:
         self._parse_title()
 
     def _parse_title(self) -> str:
-        if m := RE.SUMMARY_TITLE.match(self.title_line.raw):
+        if m := RE.GENERAL_TITLE.match(self.title_line.raw):
             self._name = m.group(1)
 
     @property
@@ -194,7 +194,7 @@ class SummarySection:
 
     # ----- 重建 -------------------- #
 
-    def rebuild(self, segments_total: int):
+    def recalculate(self, segments_total: int):
         """ 根据segments总和重建所有计算值 """
         if self.wealth_block:
             new_current = self.wealth_block.calc_current_wealth(segments_total)
@@ -206,17 +206,17 @@ class SummarySection:
                 self.special_total
             )
             self.allocation_block.set_disposable_wealth(new_disposable)
-            self.allocation_block.rebuild_allocation()
+            self.allocation_block.recalculate()
 
     # ----- 验证 -------------------- #
 
-    def validate(self, segments_total: int) -> bool:
+    def checksum(self, segments_total: int) -> bool:
         """ 验证所有计算值 """
         if self.wealth_block:
-            if not self.wealth_block.validate(segments_total):
+            if not self.wealth_block.checksum(segments_total):
                 return False
         if self.allocation_block:
-            if not self.allocation_block.validate(self.current_wealth, self.special_total):
+            if not self.allocation_block.checksum(self.current_wealth, self.special_total):
                 return False
         return True
 
@@ -283,10 +283,10 @@ class SummarySection:
 
 
 # ======================================== #
-#    Summary Factory
+#    General Factory
 # ======================================== #
 
-def make_summary(title_line: Line, lines: List[Line]) -> SummarySection:
-    summary = SummarySection(title_line=title_line, lines=lines)
-    summary._parse_sub_blocks()
-    return summary
+def make_general(title_line: Line, lines: List[Line]) -> GeneralSection:
+    general = GeneralSection(title_line=title_line, lines=lines)
+    general._parse_sub_blocks()
+    return general

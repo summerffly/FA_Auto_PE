@@ -23,7 +23,7 @@ class BaseMiniSection(ABC):
     # ----- 属性 -------------------- #
 
     title_line: Line
-    aggr_lines: List[Line] = field(default_factory=list)
+    sum_lines: List[Line] = field(default_factory=list)
     _name: str = field(init=False)
     _month_no: Optional[str] = field(init=False)
 
@@ -50,12 +50,12 @@ class BaseMiniSection(ABC):
         return self._month_no
 
     def to_lines(self) -> List[Line]:
-        return [self.title_line] + self.aggr_lines
+        return [self.title_line] + self.sum_lines
 
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         raise NotImplementedError
 
 
@@ -65,16 +65,16 @@ class BaseMiniSection(ABC):
 
 @dataclass
 class LifeMiniSection(BaseMiniSection):
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         errors = []
-        sum_line_count = sum(1 for ln in self.aggr_lines if ln.type == LineType.MONTH_AGGR)
+        sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.MONTH_SUM)
         if sum_line_count != 3:
             errors.append(f"包含 {sum_line_count} SummaryLines")
         return errors
     
     def get_line(self, key: str) -> Optional[Line]:
-        for ln in self.aggr_lines:
-            if ln.type == LineType.MONTH_AGGR and key in ln.content:
+        for ln in self.sum_lines:
+            if ln.type == LineType.MONTH_SUM and key in ln.content:
                 return ln
         return None
 
@@ -115,25 +115,25 @@ class LifeMiniSection(BaseMiniSection):
 
 @dataclass
 class CollectMiniSection(BaseMiniSection):
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         errors = []
-        sum_line_count = sum(1 for ln in self.aggr_lines if ln.type == LineType.SECTION_AGGR)
+        sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.SECTION_SUM)
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SummaryLines")
         return errors
 
-    def get_aggr_line(self) -> Optional[Line]:
-        for ln in self.aggr_lines:
-            if ln.type == LineType.SECTION_AGGR:
+    def get_sum_line(self) -> Optional[Line]:
+        for ln in self.sum_lines:
+            if ln.type == LineType.SECTION_SUM:
                 return ln
         return None
 
-    def get_aggr(self) -> int:
-        ln = self.get_aggr_line()
+    def get_sum(self) -> int:
+        ln = self.get_sum_line()
         return ln.value if ln else 0
     
-    def set_aggr(self, value: int):
-        ln = self.get_aggr_line()
+    def set_sum(self, value: int):
+        ln = self.get_sum_line()
         if ln:
             ln.value = value
 
@@ -144,10 +144,10 @@ class CollectMiniSection(BaseMiniSection):
 
 @dataclass
 class TotalMiniSection(BaseMiniSection):
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         errors = []
-        sum_line_count = sum(1 for ln in self.aggr_lines if ln.type == LineType.TOTAL)
-        delimiter_count = sum(1 for ln in self.aggr_lines if ln.type == LineType.DELIMITER)
+        sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.TOTAL)
+        delimiter_count = sum(1 for ln in self.sum_lines if ln.type == LineType.DELIMITER)
         
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SummaryLines")
@@ -157,7 +157,7 @@ class TotalMiniSection(BaseMiniSection):
         return errors
 
     def get_total_line(self) -> Optional[Line]:
-        for ln in self.aggr_lines:
+        for ln in self.sum_lines:
             if ln.type == LineType.TOTAL:
                 return ln
         return None
@@ -181,10 +181,10 @@ def make_minisection(titleline: Line, lines: List[Line]) -> BaseMiniSection:
     ltype = titleline.type
     
     if ltype == LineType.LIFE_TITLE:
-        return LifeMiniSection(title_line=titleline, aggr_lines=lines)
+        return LifeMiniSection(title_line=titleline, sum_lines=lines)
     elif ltype == LineType.COLLECT_TITLE:
-        return CollectMiniSection(title_line=titleline, aggr_lines=lines)
+        return CollectMiniSection(title_line=titleline, sum_lines=lines)
     elif ltype == LineType.TOTAL_TITLE:
-        return TotalMiniSection(title_line=titleline, aggr_lines=lines)
+        return TotalMiniSection(title_line=titleline, sum_lines=lines)
     else:
         raise ValueError(f"未知 MiniSection 类型: {raw}")

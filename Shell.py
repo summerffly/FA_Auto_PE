@@ -1,7 +1,7 @@
 # File:        Shell.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-02
 # Description: 交互式命令行
 
 import cmd
@@ -36,8 +36,8 @@ def _require(parts: list[str], n: int, usage: str):
 
 class Shell(cmd.Cmd):
 
-    intro  = " "
-    prompt = "CMD > "
+    intro  = ""
+    prompt = "[CMD] > "
 
     def __init__(self, hub: LedgerHub, engine: Engine):
         super().__init__()
@@ -48,7 +48,9 @@ class Shell(cmd.Cmd):
 
     def _run(self, fn):
         try:
+            print(f"--------------------------------------------------")
             fn()
+            print(f"--------------------------------------------------")
         except ValueError as e:
             print(f"{Fore.RED}[!]{Style.RESET_ALL} {e}")
         except KeyError as e:
@@ -67,14 +69,14 @@ class Shell(cmd.Cmd):
     def do_ts(self, _):
         """ts"""
         def run():
-            sum_ledger = self._hub.get_sum_ledger()
-            filepath   = self._hub.get_filepath("sum")
-            timestamp  = sum_ledger.tail.timestamp
+            gen_ledger = self._hub.get_gen_ledger()
+            filepath   = self._hub.get_filepath("fa")
+            timestamp  = gen_ledger.tail.timestamp
             print(f"  {filepath:<14} {timestamp if timestamp else 'NONE'}")
 
-            for name in self._hub.list_ledger_alias():
-                ledger    = self._hub.get_ledger(name)
-                filepath  = self._hub.get_filepath(name)
+            for alias in self._hub.list_ledger_alias():
+                ledger    = self._hub.get_ledger(alias)
+                filepath  = self._hub.get_filepath(alias)
                 timestamp = ledger.tail.timestamp
                 print(f"  {filepath:<14} {timestamp if timestamp else 'NONE'}")
         self._run(run)
@@ -86,9 +88,10 @@ class Shell(cmd.Cmd):
             for alias in alias_list:
                 ledger = self._hub.get_ledger(alias)
                 name   = self._hub.get_name(alias)
-                print(f"\n── {name} ──")
+                print(f"── {name} ──")
                 for seg in ledger.segments:
                     print(f"  {seg.name}")
+                print("")
         self._run(run)
 
     def do_print(self, arg):
@@ -107,23 +110,23 @@ class Shell(cmd.Cmd):
                 print(seg.to_raw())
         self._run(run)
 
-    def do_aggr(self, arg):
-        """aggr [<账目别名> [分段名]]"""
+    def do_sum(self, arg):
+        """sum [<账目别名> [分段名]]"""
         def run():
             parts = _parse(arg)
 
             if not parts:
                 for alias in self._hub.list_ledger_alias():
-                    self._engine.show_ledger_aggr(alias)
+                    self._engine.show_ledger_sum(alias)
                 return
 
             alias = parts[0]
             ledger = self._hub.get_ledger(alias)
 
             if len(parts) == 1:
-                self._engine.show_ledger_aggr(alias)
+                self._engine.show_ledger_sum(alias)
             else:
-                self._engine.show_segment_aggr(alias, parts[1])
+                self._engine.show_segment_sum(alias, parts[1])
         self._run(run)
 
     # ----- 校验 -------------------- #
@@ -132,33 +135,36 @@ class Shell(cmd.Cmd):
         """check [账目]"""
         def run():
             parts = _parse(arg)
-            alias_list = [parts[0]] if parts else self._hub.list_ledger_alias()
+            if parts:
+                alias = parts[0]
+                if alias not in self._hub.list_ledger_alias() and alias != "fa":
+                    raise ValueError(f"无效的账目别名: {alias}")
+                alias_list = [alias]
+            else:
+                alias_list = self._hub.list_ledger_alias()
 
             for alias in alias_list:
-                ledger = self._hub.get_ledger(alias)
-                name = self._hub.get_name(alias)
-                for seg in ledger.segments:
-                    ok = seg.validate_aggr()
-                    flag = (f"{Fore.GREEN}OK{Style.RESET_ALL}"
-                            if ok else
-                            f"{Fore.RED}FAIL{Style.RESET_ALL}")
-                    print(f"  [{flag}] {name} / {seg.name}")
+                self._engine.check_ledger(alias)
         self._run(run)
+
 
     # ----- 操作 -------------------- #
 
-    def do_rebuild(self, arg):
-        """rebuild [账目]"""
+    def do_recalc(self, arg):
+        """recalc <month|life|collect|gen>"""
         def run():
             parts = _parse(arg)
-            alias = parts[0] if parts and parts[0] in self._hub.list_ledger_alias() else None
 
             if not parts:
-                self._engine.rebuild()
-            elif parts[0] == "sum":
-                self._hub.get_sum_ledger().rebuild_ledger()
-            elif parts[0] in self._hub.list_ledger_alias():
-                self._hub.get_ledger(alias).rebuild_ledger()
+                self._engine.recalculate_all()
+            elif parts[0] == "month":
+                self._engine.recalculate_month()
+            elif parts[0] == "life":
+                self._engine.recalculate_life()
+            elif parts[0] == "collect":
+                self._engine.recalculate_collect()
+            elif parts[0] == "gen":
+                self._engine.recalculate_gen()
             else:
                 raise ValueError(f"未知账目: {parts[0]}")
         self._run(run)
@@ -192,34 +198,16 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_save(self, arg):
-        """save [账目]"""
+        """save"""
         def run():
-            parts = _parse(arg)
-            if parts:
-                if parts[0] == "sum":
-                    self._hub.save_sum_ledger()
-                    print(f"  汇总账目已保存")
-                else:
-                    self._hub.save_ledger(parts[0])
-                    print(f"  {parts[0]} 已保存")
-            else:
-                self._hub.save_all()
+            self._hub.save_all()
         self._run(run)
 
     def do_reload(self, arg):
-        """reload [账目]"""
+        """reload"""
         def run():
-            parts = _parse(arg)
-            if parts:
-                if parts[0] == "sum":
-                    self._hub.reload_sum_ledger()
-                    print(f"  汇总账目已重载")
-                else:
-                    self._hub.reload_ledger(parts[0])
-                    print(f"  {parts[0]} 已重载")
-            else:
-                self._hub.reload_all()
-                print("  所有账目已重载")
+            self._hub.reload_all()
+            print("  所有账目已重载")
         self._run(run)
 
     # ----- Debug -------------------- #
@@ -228,8 +216,8 @@ class Shell(cmd.Cmd):
         """dump [账目]"""
         def run():
             parts = _parse(arg)
-            if parts and parts[0] == "sum":
-                self._hub.get_sum_ledger().dump()
+            if parts and parts[0] == "fa":
+                self._hub.get_gen_ledger().dump()
             elif parts:
                 self._hub.get_ledger(parts[0]).dump()
             else:
@@ -242,14 +230,14 @@ class Shell(cmd.Cmd):
         """repr [账目]"""
         def run():
             parts = _parse(arg)
-            if parts and parts[0] == "sum":
-                print(self._hub.get_sum_ledger().__repr__())
+            if parts and parts[0] == "fa":
+                print(self._hub.get_gen_ledger().__repr__())
             elif parts:
                 print(self._hub.get_ledger(parts[0]).__repr__())
             else:
-                name = self._hub.get_name("sum")
+                name = self._hub.get_name("fa")
                 print(f"\n── {name} ──")
-                print(self._hub.get_sum_ledger().__repr__())
+                print(self._hub.get_gen_ledger().__repr__())
                 for alias in self._hub.list_ledger_alias():
                     name = self._hub.get_name(alias)
                     print(f"\n── {name} ──")

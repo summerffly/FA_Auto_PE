@@ -77,34 +77,27 @@ class BaseLedger(LedgerMixin, ABC):
 
     # ----- 汇总操作 -------------------- #
 
-    def rebuild_segment_summary(self, name: str):
-        """ 重建指定分段汇总 """
-        seg = self.get_segment(name)
-        if seg is None:
-            raise ValueError(f"segment 不存在: {name}")
-        seg.rebuild_aggr()
-
-    def validate_segment_summary(self, name: str) -> bool:
+    def checksum_segment(self, name: str) -> bool:
         """ 验证指定分段汇总 """
         seg = self.get_segment(name)
         if seg is None:
             raise ValueError(f"segment 不存在: {name}")
-        return seg.validate_aggr()
+        return seg.checksum()
 
-    def validate_ledger(self) -> bool:
+    def checkcum_ledger(self) -> bool:
         """ 验证所有分段汇总 """
-        return all(seg.validate_aggr() for seg in self.segments)
+        return all(seg.checksum() for seg in self.segments)
 
     def get_all_segments_sum(self) -> int:
         """获取所有分段的总和"""
         total_sum = 0
         for seg in self.segments:
-            total_sum += seg.get_aggr()
+            total_sum += seg.get_sum()
         return total_sum
 
     @abstractmethod
-    def rebuild_ledger(self):
-        """重建整个账目（抽象方法）"""
+    def recalculate(self):
+        """ 重建整个账目 """
         raise NotImplementedError
 
     # ----- 序列化方法 -------------------- #
@@ -122,7 +115,7 @@ class BaseLedger(LedgerMixin, ABC):
 
     # ----- 验证和调试 -------------------- #
 
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         """验证账目结构"""
         errors = []
         
@@ -133,17 +126,17 @@ class BaseLedger(LedgerMixin, ABC):
 
         # 验证每个分段
         for seg in self.segments:
-            seg_errors = seg.validate_struct()
+            seg_errors = seg.validate()
             errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
 
         # 验证总计
         if self.total:
-            total_errors = self.total.validate_struct()
+            total_errors = self.total.validate()
             errors.extend([f"total: {err}" for err in total_errors])
         
         # 验证尾部
         if self.tail:
-            tail_errors = self.tail.validate_struct()
+            tail_errors = self.tail.validate()
             errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
@@ -161,7 +154,7 @@ class BaseLedger(LedgerMixin, ABC):
         for i, sec in enumerate(self.segments, 1):
             print(f"[Segment {i}] {sec.name}")
             print(f"   class     : {sec.__class__.__name__}")
-            print(f"   summaries : {len(sec.aggr_lines)}")
+            print(f"   summaries : {len(sec.sum_lines)}")
             print(f"   body      : {len(sec.body_lines)}")
             print(f"   units     : {len(sec.unit_lines)}")
             print(f"   blanks    : {len(sec.blank_lines)}")
@@ -170,7 +163,7 @@ class BaseLedger(LedgerMixin, ABC):
         if self.total:
             print(f"[Total] {self.total.name}")
             print(f"   class : {self.total.__class__.__name__}")
-            print(f"   lines : {len(self.total.aggr_lines)}")
+            print(f"   lines : {len(self.total.sum_lines)}")
             print()
 
     def __repr__(self):

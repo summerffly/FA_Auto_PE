@@ -22,14 +22,14 @@ class CollectLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_CollectLedgerParser":
         return _CollectLedgerParser(lines, ledger=CollectLedger())
 
-    def rebuild_ledger(self):
+    def recalculate(self):
         # 重建每个分段
         for seg in self.segments:
-            seg.rebuild_aggr()
+            seg.recalculate_sum()
         
         # 重建总计
         if self.total:
-            self.rebuild_total()
+            self.recalculate_total()
     
 
     def get_total_value(self) -> Optional[int]:
@@ -39,7 +39,7 @@ class CollectLedger(BaseLedger):
         else:
             return self.total.get_total()
 
-    def rebuild_total(self):
+    def recalculate_total(self):
         """ 重建总计 """
         if self.total is None:
             return
@@ -47,7 +47,7 @@ class CollectLedger(BaseLedger):
         total_sum = self.get_all_segments_sum()
         self.total.set_total(total_sum)
 
-    def validate_total(self) -> bool:
+    def checksum_total(self) -> bool:
         """验证总计是否正确"""
         if self.total is None:
             return True

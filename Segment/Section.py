@@ -23,7 +23,7 @@ class BaseSection(ABC):
     # ----- 属性 -------------------- #
 
     title_line: Line
-    aggr_lines: List[Line] = field(default_factory=list)
+    sum_lines: List[Line] = field(default_factory=list)
     body_lines: List[Line] = field(default_factory=list)
     _name: str = field(init=False)
     _month_no: Optional[str] = field(init=False)
@@ -44,8 +44,8 @@ class BaseSection(ABC):
             self._name = m.group(1)
 
     def parse_line(self, line: Line):
-        if self.is_aggr_line(line):
-            self.aggr_lines.append(line)
+        if self.is_sum_line(line):
+            self.sum_lines.append(line)
         else:
             self.body_lines.append(line)
 
@@ -58,7 +58,7 @@ class BaseSection(ABC):
         return self._month_no
 
     def to_lines(self) -> List[Line]:
-        return [self.title_line] + self.aggr_lines + self.body_lines
+        return [self.title_line] + self.sum_lines + self.body_lines
 
     @property
     def unit_lines(self) -> List[Line]:
@@ -68,13 +68,13 @@ class BaseSection(ABC):
     def blank_lines(self) -> List[Line]:
         return [ln for ln in self.body_lines if ln.type == LineType.BLANK]
 
-    def get_aggr_line(self, keyword: str) -> Optional[Line]:
-        for ln in self.aggr_lines:
+    def get_sum_line(self, keyword: str) -> Optional[Line]:
+        for ln in self.sum_lines:
             if keyword in ln.content:
                 return ln
         return None
 
-    def calc_units_aggr(self) -> int:
+    def calculate_sum(self) -> int:
         return sum(ln.value for ln in self.unit_lines)
     
     # ----- 序列化方法 -------------------- #
@@ -88,23 +88,23 @@ class BaseSection(ABC):
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         raise NotImplementedError
 
     @abstractmethod
-    def is_aggr_line(self, line: Line) -> bool:
+    def is_sum_line(self, line: Line) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def rebuild_aggr(self):
+    def recalculate_sum(self):
         raise NotImplementedError
 
     @abstractmethod
-    def get_aggr(self) -> int:
+    def get_sum(self) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def validate_aggr(self) -> bool:
+    def checksum(self) -> bool:
         raise NotImplementedError
 
 
@@ -114,19 +114,19 @@ class BaseSection(ABC):
 
 @dataclass
 class LifeSection(BaseSection):
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         errors = []
-        if len(self.aggr_lines) != 3:
-            errors.append(f"包含 {len(self.aggr_lines)} SummaryLines")
+        if len(self.sum_lines) != 3:
+            errors.append(f"包含 {len(self.sum_lines)} SummaryLines")
         if not self.body_lines:
             errors.append(f"缺失 BodyLines")
         return errors
 
-    def is_aggr_line(self, line: Line) -> bool:
-        return line.type == LineType.MONTH_AGGR
+    def is_sum_line(self, line: Line) -> bool:
+        return line.type == LineType.MONTH_SUM
 
-    def rebuild_aggr(self):
-        income_line = self.get_aggr_line("收入")
+    def recalculate_sum(self):
+        income_line = self.get_sum_line("收入")
         if income_line is None:
             raise ValueError(f"{self.name} 缺少 '收入'")
 
@@ -140,35 +140,35 @@ class LifeSection(BaseSection):
 
         month_text = month_no[1:] + "月"
 
-        self.aggr_lines = [
+        self.sum_lines = [
             Line(
                 raw="",
-                type=LineType.MONTH_AGGR,
+                type=LineType.MONTH_SUM,
                 value=income,
                 content=f"{month_text}收入"
             ),
             Line(
                 raw="",
-                type=LineType.MONTH_AGGR,
+                type=LineType.MONTH_SUM,
                 value=expense,
                 content=f"{month_text}支出"
             ),
             Line(
                 raw="",
-                type=LineType.MONTH_AGGR,
+                type=LineType.MONTH_SUM,
                 value=balance,
                 content=f"{month_text}结余"
             ),
         ]
 
-    def get_aggr(self) -> int:
-        balance_line = self.get_aggr_line("结余")
+    def get_sum(self) -> int:
+        balance_line = self.get_sum_line("结余")
         return balance_line.value if balance_line else 0
 
-    def validate_aggr(self) -> bool:
-        income_line = self.get_aggr_line("收入")
-        expense_line = self.get_aggr_line("支出")
-        balance_line = self.get_aggr_line("结余")
+    def checksum(self) -> bool:
+        income_line = self.get_sum_line("收入")
+        expense_line = self.get_sum_line("支出")
+        balance_line = self.get_sum_line("结余")
 
         if income_line is None or expense_line is None or balance_line is None:
             return False
@@ -183,21 +183,21 @@ class LifeSection(BaseSection):
         )
     
     def get_income(self) -> int:
-        income_line = self.get_aggr_line("收入")
+        income_line = self.get_sum_line("收入")
         return income_line.value if income_line else 0
     
     def get_expense(self) -> int:
-        expense_line = self.get_aggr_line("支出")
+        expense_line = self.get_sum_line("支出")
         return expense_line.value if expense_line else 0
     
     def get_balance(self) -> int:
-        balance_line = self.get_aggr_line("结余")
+        balance_line = self.get_sum_line("结余")
         return balance_line.value if balance_line else 0
 
     def __repr__(self):
         return (
             f"LifeSection(name={self.name!r}, "
-            f"summary={len(self.aggr_lines)}, "
+            f"summary={len(self.sum_lines)}, "
             f"body={len(self.body_lines)}, "
             f"units={len(self.unit_lines)})"
         )
@@ -210,39 +210,39 @@ class LifeSection(BaseSection):
 @dataclass
 class SingleAggrSection(BaseSection, ABC):
  
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         errors = []
-        if len(self.aggr_lines) != 1:
-            errors.append(f"包含 {len(self.aggr_lines)} SummaryLines")
+        if len(self.sum_lines) != 1:
+            errors.append(f"包含 {len(self.sum_lines)} SummaryLines")
         if not self.body_lines:
             errors.append(f"缺失 BodyLines")
         return errors
  
-    def is_aggr_line(self, line: Line) -> bool:
-        return line.type == LineType.SECTION_AGGR
+    def is_sum_line(self, line: Line) -> bool:
+        return line.type == LineType.SECTION_SUM
  
-    def rebuild_aggr(self):
-        total = self.calc_units_aggr()
-        self.aggr_lines = [
+    def recalculate_sum(self):
+        total = self.calculate_sum()
+        self.sum_lines = [
             Line(
                 raw="",
-                type=LineType.SECTION_AGGR,
+                type=LineType.SECTION_SUM,
                 value=total,
                 content=""
             )
         ]
  
-    def get_aggr(self) -> int:
-        ln = self.aggr_lines[0] if self.aggr_lines else None
-        return ln.value if ln and ln.type == LineType.SECTION_AGGR else 0
+    def get_sum(self) -> int:
+        ln = self.sum_lines[0] if self.sum_lines else None
+        return ln.value if ln and ln.type == LineType.SECTION_SUM else 0
 
-    def validate_aggr(self) -> bool:
-        if len(self.aggr_lines) != 1:
+    def checksum(self) -> bool:
+        if len(self.sum_lines) != 1:
             return False
-        ln = self.aggr_lines[0]
+        ln = self.sum_lines[0]
         return (
-            ln.type == LineType.SECTION_AGGR and
-            ln.value == self.calc_units_aggr()
+            ln.type == LineType.SECTION_SUM and
+            ln.value == self.calculate_sum()
         )
  
  
@@ -255,7 +255,7 @@ class MonthSection(SingleAggrSection):
     def __repr__(self):
         return (
             f"MonthSection(name={self.name!r}, "
-            f"summary={len(self.aggr_lines)}, "
+            f"summary={len(self.sum_lines)}, "
             f"body={len(self.body_lines)}, "
             f"units={len(self.unit_lines)})"
         )
@@ -270,7 +270,7 @@ class CollectSection(SingleAggrSection):
     def __repr__(self):
         return (
             f"CollectSection(name={self.name!r}, "
-            f"summary={len(self.aggr_lines)}, "
+            f"summary={len(self.sum_lines)}, "
             f"body={len(self.body_lines)}, "
             f"units={len(self.unit_lines)})"
         )

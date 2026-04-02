@@ -1,7 +1,7 @@
 # File:        Ledger/Sum.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-02
 # Description: 汇总账目对象
 
 from dataclasses import dataclass, field
@@ -11,29 +11,29 @@ from colorama import Fore, Style
 from Line import Line, LineType
 from Segment import (
     CollectMiniSection, LifeMiniSection, make_minisection,
-    SummarySection, make_summary,
+    GeneralSection, make_general,
     TailBlock, make_tail_block
 )
 from .Mixin import LedgerMixin
 
 
 # ======================================== #
-#    SumLedger
+#    GeneralLedger
 # ======================================== #
 
 @dataclass
-class SumLedger(LedgerMixin):
+class GeneralLedger(LedgerMixin):
     header: List[Line] = field(default_factory=list)
     collect_segments: List[CollectMiniSection] = field(default_factory=list)
     life_segments: List[LifeMiniSection] = field(default_factory=list)
-    summary: Optional[SummarySection] = None
+    general: Optional[GeneralSection] = None
     tail: Optional[TailBlock] = None
 
     # ----- 解析方法 -------------------- #
 
     @classmethod
-    def parse_lines(cls, lines: List[Line]) -> "SumLedger":
-        parser = _SumLedgerParser(lines)
+    def parse_lines(cls, lines: List[Line]) -> "GeneralLedger":
+        parser = _GeneralLedgerParser(lines)
         return parser.parse()
 
     # ----- 数据访问方法 -------------------- #
@@ -62,7 +62,7 @@ class SumLedger(LedgerMixin):
         """ 修改指定 Collect 分段数值 """
         seg = self.get_collect_segment(name)
         if seg is not None:
-            seg.set_aggr(new_value)
+            seg.set_sum(new_value)
 
     def mod_life_segment_value(self, month_no: str, income_value: int, expense_value: int, balance_value: int):
         """ 修改指定月份 Life 分段数值 """
@@ -74,26 +74,26 @@ class SumLedger(LedgerMixin):
 
     def get_segments_total(self) -> int:
         """ 所有分段的总和 """
-        collect_total = sum(seg.get_aggr() for seg in self.collect_segments)
+        collect_total = sum(seg.get_sum() for seg in self.collect_segments)
         life_total = sum(seg.balance for seg in self.life_segments)
         return collect_total + life_total
 
-    def rebuild_ledger(self):
+    def recalculate(self):
         """ 重建 Ledger 的所有计算值 """
-        if self.summary:
+        if self.general:
             segments_total = self.get_segments_total()
-            self.summary.rebuild(segments_total)
+            self.general.recalculate(segments_total)
 
-    def validate_ledger(self) -> bool:
-        """ 验证 Summary 的所有计算值 """
-        if self.summary is None:
+    def checkcum_ledger(self) -> bool:
+        """ 验证 General 的所有计算值 """
+        if self.general is None:
             return True
         segments_total = self.get_segments_total()
-        return self.summary.validate(segments_total)
+        return self.general.checksum(segments_total)
 
     # ----- 验证方法 -------------------- #
 
-    def validate(self) -> bool:
+    def checksum(self) -> bool:
         """ 验证所有区块 """
         return True
 
@@ -106,15 +106,15 @@ class SumLedger(LedgerMixin):
             all_lines.extend(seg.to_lines())
         for seg in self.life_segments:
             all_lines.extend(seg.to_lines())
-        if self.summary:
-            all_lines.extend(self.summary.to_lines())
+        if self.general:
+            all_lines.extend(self.general.to_lines())
         if self.tail:
             all_lines.extend(self.tail.to_lines())
         return all_lines
 
     # ----- Debug -------------------- #
 
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         """ 验证账目结构，返回错误信息列表 """
         errors = []
 
@@ -125,84 +125,84 @@ class SumLedger(LedgerMixin):
 
         # 检查 collect_segments
         for sec in self.collect_segments:
-            sec_errors = sec.validate_struct()
+            sec_errors = sec.validate()
             errors.extend([f"collect_segment '{sec.name}': {err}" for err in sec_errors])
 
         # 检查 life_segments
         for sec in self.life_segments:
-            sec_errors = sec.validate_struct()
+            sec_errors = sec.validate()
             errors.extend([f"life_segment '{sec.name}': {err}" for err in sec_errors])
 
         # 检查 tail
         if self.tail:
-            tail_errors = self.tail.validate_struct()
+            tail_errors = self.tail.validate()
             errors.extend([f"tail: {err}" for err in tail_errors])
 
         return errors
     
     def dump(self):
-        print("=== SumLedger Dump ===")
+        print("=== GeneralLedger Dump ===")
         print(f"Type             : {self.__class__.__name__}")
         print(f"header           : {len(self.header)}")
         print(f"collect_segments : {len(self.collect_segments)}")
         print(f"life_segments    : {len(self.life_segments)}")
-        print(f"summary          : {self.summary.name if self.summary else 'None'}")
+        print(f"general          : {self.general.name if self.general else 'None'}")
         print(f"tail             : {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
         for i, seg in enumerate(self.collect_segments, 1):
             print(f"[CollectSegment {i}] {seg.name}")
             print(f"   class     : {seg.__class__.__name__}")
-            print(f"   summaries : {len(seg.aggr_lines)}")
-            print(f"   value     : {'+' if seg.get_aggr() >= 0 else ''}{seg.get_aggr()}")
+            print(f"   summaries : {len(seg.sum_lines)}")
+            print(f"   value     : {'+' if seg.get_sum() >= 0 else ''}{seg.get_sum()}")
             print()
 
         for i, seg in enumerate(self.life_segments, 1):
             print(f"[LifeSegment {i}] {seg.name}")
             print(f"   class     : {seg.__class__.__name__}")
-            print(f"   summaries : {len(seg.aggr_lines)}")
+            print(f"   summaries : {len(seg.sum_lines)}")
             print(f"   income    : {'+' if seg.income >= 0 else ''}{seg.income}")
             print(f"   expense   : {'+' if seg.expense >= 0 else ''}{seg.expense}")
             print(f"   balance   : {'+' if seg.balance >= 0 else ''}{seg.balance}")
             print()
 
-        if self.summary:
-            print(f"[Summary] {self.summary.name}")
-            print(f"   class     : {self.summary.__class__.__name__}")
-            print(f"   wealth    : {len(self.summary.wealth_block.lines)}")
-            print(f"   extra     : {len(self.summary.extra_block.lines)}")
-            print(f"   allocation: {len(self.summary.allocation_block.lines)}")
+        if self.general:
+            print(f"[General] {self.general.name}")
+            print(f"   class     : {self.general.__class__.__name__}")
+            print(f"   wealth    : {len(self.general.wealth_block.lines)}")
+            print(f"   extra     : {len(self.general.extra_block.lines)}")
+            print(f"   allocation: {len(self.general.allocation_block.lines)}")
             print()
 
     def __repr__(self):
         return (
-            f"SumLedger("
+            f"GeneralLedger("
             f"header={len(self.header)}, "
             f"collect_segments={len(self.collect_segments)}, "
             f"life_segments={len(self.life_segments)}, "
-            f"summary={self.summary.name if self.summary else 'None'}, "
+            f"general={self.general.name if self.general else 'None'}, "
             f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )
 
 
 # ======================================== #
-#    SumLedger Parser
+#    GeneralLedger Parser
 # ======================================== #
 
 @dataclass
-class _SumLedgerParser:
+class _GeneralLedgerParser:
     lines: List[Line]
-    ledger: SumLedger = field(default_factory=SumLedger)
+    ledger: GeneralLedger = field(default_factory=GeneralLedger)
     index: int = 0
     curr_head: Optional[Line] = None
     curr_lines: List[Line] = field(default_factory=list)
 
-    def parse(self) -> SumLedger:
+    def parse(self) -> GeneralLedger:
         while self.index < len(self.lines):
             line = self.lines[self.index]
 
             # 处理新分段
-            if line.type in (LineType.LIFE_TITLE, LineType.COLLECT_TITLE, LineType.SUMMARY_TITLE):
+            if line.type in (LineType.LIFE_TITLE, LineType.COLLECT_TITLE, LineType.GENERAL_TITLE):
                 self._finish_current_segment()
                 self._start_new_segment(line)
                 continue
@@ -236,8 +236,8 @@ class _SumLedgerParser:
 
         if self.curr_head is None:
             pass
-        elif self.curr_head.type == LineType.SUMMARY_TITLE:
-            self.ledger.summary = make_summary(self.curr_head, self.curr_lines)
+        elif self.curr_head.type == LineType.GENERAL_TITLE:
+            self.ledger.general = make_general(self.curr_head, self.curr_lines)
         else:
             minisection = make_minisection(self.curr_head, self.curr_lines)
             if isinstance(minisection, LifeMiniSection):

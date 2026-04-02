@@ -26,7 +26,7 @@ class BaseBlock(ABC):
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         raise NotImplementedError
 
 
@@ -36,7 +36,7 @@ class BaseBlock(ABC):
 
 @dataclass
 class TailBlock(BaseBlock):
-    def validate_struct(self) -> List[str]:
+    def validate(self) -> List[str]:
         errors = []
         timestamp_line_cnt = [ln for ln in self.block_lines if ln.type == LineType.TIMESTAMP]
         eof_line_cnt = [ln for ln in self.block_lines if ln.type == LineType.EOF]

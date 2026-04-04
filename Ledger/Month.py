@@ -1,7 +1,7 @@
 # File:        Ledger/Month.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-03-30
+# LastEdit:    2026-04-03
 # Description: Month账目实现
 
 from dataclasses import dataclass
@@ -22,15 +22,20 @@ class MonthLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_MonthLedgerParser":
         return _MonthLedgerParser(lines, ledger=MonthLedger())
 
-    def recalculate(self):
+    def rebuild(self):
         for seg in self.segments:
-            seg.recalculate_sum()
+            seg.rebuild()
 
-    def get_month_total(self, month: str) -> int:
-        """ 获取月度总计 """
+    def get_month_segment(self, month: str) -> MonthSection | None:
         for seg in self.segments:
-            if seg.name == month:
-                return seg.get_sum()
+            if seg.name == month and isinstance(seg, MonthSection):
+                return seg
+        return None
+
+    def get_month_sum(self, month: str) -> int:
+        seg = self.get_month_segment(month)
+        if seg is not None:
+            return seg.get_sum()
         return 0
 
     def __repr__(self):

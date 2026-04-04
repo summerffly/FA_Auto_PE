@@ -1,7 +1,7 @@
 # File:        LedgerHub.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-23
-# LastEdit:    2026-04-02
+# LastEdit:    2026-04-03
 # Description: 所有账目合集
 
 from __future__ import annotations
@@ -66,23 +66,41 @@ class LedgerHub:
 
      # ----- 加载 -------------------- #
 
-    def load_gen_ledger(self, alias: str, name: str, filepath: str) -> GeneralLedger:
-        ledger = GeneralLedger.parse_file(filepath)
-        self._gen_entry = LedgerEntry(alias=alias, name=name, filepath=filepath, ledger=ledger)
-        return ledger
-
-    def load_ledger(self, alias: str, name: str, filepath: str) -> BaseLedger:
-        ledger = create_ledger_from_file(filepath)
-        entry  = LedgerEntry(alias=alias, name=name, filepath=filepath, ledger=ledger)
-        self._entries[alias] = entry
-        return ledger
-
     def load_all(self):
         alias, name, filepath = self._GEN_REGISTRY
-        self.load_gen_ledger(alias, name, filepath)
+        ledger = create_ledger_from_file(filepath)
+        self._gen_entry = LedgerEntry(alias=alias, name=name, filepath=filepath, ledger=ledger)
 
         for alias, name, filepath in self._REGISTRY:
-            self.load_ledger(alias, name, filepath)
+            ledger = create_ledger_from_file(filepath)
+            entry = LedgerEntry(alias=alias, name=name, filepath=filepath, ledger=ledger)
+            self._entries[alias] = entry
+
+    # ----- 重载 -------------------- #
+    
+    def reload_all(self):
+        if self._gen_entry is not None:
+            ledger = create_ledger_from_file(self._gen_entry.filepath)
+            self._gen_entry.ledger = ledger
+            print(f"  已重载: {self._gen_entry.name:<9} <- {self._gen_entry.filepath}")
+
+        for entry in self.get_entries():
+            ledger = create_ledger_from_file(entry.filepath)
+            entry.ledger = ledger
+            print(f"  已重载: {entry.name:<9} <- {entry.filepath}")
+
+    # ----- 保存 -------------------- #
+
+    def save_all(self):
+        if self._gen_entry is not None:
+            self._gen_entry.ledger.refresh_timestamp()
+            self._gen_entry.ledger.save(self._gen_entry.filepath)
+            print(f"  已保存: {self._gen_entry.name:<9} -> {self._gen_entry.filepath}")
+        
+        for entry in self.get_entries():
+            entry.ledger.refresh_timestamp()
+            entry.ledger.save(entry.filepath)
+            print(f"  已保存: {entry.name:<9} -> {entry.filepath}")
 
     # ----- 访问 -------------------- #
 
@@ -93,10 +111,32 @@ class LedgerHub:
         return self._entries.get(alias)
 
     def get_gen_entry(self) -> LedgerEntry:
-        entry = self._get_any_entry("fa")
+        if self._gen_entry is None:
+            raise RuntimeError("账目未加载")
+        return self._gen_entry
+    
+    def get_life_entry(self) -> LedgerEntry:
+        entry = self._get_any_entry("life")
         if entry is None:
-            raise RuntimeError("汇总账目未加载")
+            raise RuntimeError("账目未加载")
         return entry
+    
+    def get_month_entries(self) -> list[LedgerEntry]:
+        month_entries = []
+        for entry in self._entries.values():
+            if isinstance(entry.ledger, MonthLedger):
+                month_entries.append(entry)
+        return month_entries
+    
+    def get_collect_entries(self) -> list[LedgerEntry]:
+        collect_entries = []
+        for entry in self._entries.values():
+            if isinstance(entry.ledger, CollectLedger):
+                collect_entries.append(entry)
+        return collect_entries
+    
+    def get_entries(self) -> list[LedgerEntry]:
+        return list(self._entries.values())
 
     def get_entry(self, alias: str) -> LedgerEntry:
         entry = self._get_any_entry(alias)
@@ -104,83 +144,10 @@ class LedgerHub:
             raise KeyError(f"账目不存在: {alias}")
         return entry
 
-    def get_gen_ledger(self) -> GeneralLedger:
-        return self.get_gen_entry().ledger
-
-    def get_ledger(self, alias: str) -> BaseLedger:
-        return self.get_entry(alias).ledger
-
-    def get_name(self, alias: str) -> str | None:
-        entry = self._get_any_entry(alias)
-        return entry.name if entry else None
-
-    def get_filepath(self, alias: str) -> str | None:
-        entry = self._get_any_entry(alias)
-        return entry.filepath if entry else None
-
-    def list_ledger_alias(self) -> list[str]:
-        """返回所有账目alias列表"""
-        return list(self._entries.keys())
-    
-    def list_ledger_entry(self) -> list[LedgerEntry]:
-        """返回所有账目entry列表"""
-        return self._entries.values()
-
-    # ----- 重载 -------------------- #
-
-    def reload_gen_ledger(self) -> GeneralLedger:
-        if self._gen_entry is None:
-            raise RuntimeError("汇总账目未加载")
-        ledger = GeneralLedger.parse_file(self._gen_entry.filepath)
-        self._gen_entry.ledger = ledger
-        return ledger
-
-    def reload_ledger(self, alias: str) -> BaseLedger:
-        if alias not in self._entries:
-            raise KeyError(f"账目不存在: {alias}")
-        entry  = self._entries[alias]
-        ledger = create_ledger_from_file(entry.filepath)
-        entry.ledger = ledger
-        return ledger
-
-    def reload_all(self):
-        if self._gen_entry is not None:
-            self.reload_gen_ledger()
-        
-        for alias in list(self._entries.keys()):
-            self.reload_ledger(alias)
-
-    # ----- 保存 -------------------- #
-
-    def save_gen_ledger(self, filepath: str | None = None):
-        if self._gen_entry is None:
-            raise RuntimeError("汇总账目未加载")
-
-        target = filepath or self._gen_entry.filepath
-        if not target:
-            raise ValueError("汇总账目没有可用的保存路径")
-
-        self._gen_entry.ledger.refresh_timestamp()
-        self._gen_entry.ledger.save(target)
-
-    def save_ledger(self, alias: str, filepath: str | None = None):
-        entry = self.get_entry(alias)
-
-        target = filepath or entry.filepath
-        if not target:
-            raise ValueError(f"账目 {alias} 没有可用的保存路径")
-
-        entry.ledger.refresh_timestamp()
-        entry.ledger.save(target)
-
-    def save_all(self):
-        if self._gen_entry is not None:
-            self.save_gen_ledger()
-            print(f"  保存账目: {self._gen_entry.name:<9} -> {self._gen_entry.filepath}")
-        
-        for entry in self._entries.values():
-            entry.ledger.refresh_timestamp()
-            entry.ledger.save(entry.filepath)
-            print(f"  保存账目: {entry.name:<9} -> {entry.filepath}")
+    def get_alias_list(self) -> list[str]:
+        alias_list = []
+        for entry in self.get_entries():
+            alias_list.append(entry.alias)
+        return alias_list
     
     # ----- END -------------------- #

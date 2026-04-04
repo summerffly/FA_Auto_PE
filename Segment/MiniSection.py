@@ -48,6 +48,8 @@ class BaseMiniSection(ABC):
     @property
     def month_no(self) -> Optional[str]:
         return self._month_no
+    
+    # ----- 序列化 -------------------- #
 
     def to_lines(self) -> List[Line]:
         return [self.title_line] + self.sum_lines
@@ -69,7 +71,7 @@ class LifeMiniSection(BaseMiniSection):
         errors = []
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.MONTH_SUM)
         if sum_line_count != 3:
-            errors.append(f"包含 {sum_line_count} SummaryLines")
+            errors.append(f"包含 {sum_line_count} SumLines")
         return errors
     
     def get_line(self, key: str) -> Optional[Line]:
@@ -119,7 +121,7 @@ class CollectMiniSection(BaseMiniSection):
         errors = []
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.SECTION_SUM)
         if sum_line_count != 1:
-            errors.append(f"包含 {sum_line_count} SummaryLines")
+            errors.append(f"包含 {sum_line_count} SumLines")
         return errors
 
     def get_sum_line(self) -> Optional[Line]:
@@ -150,9 +152,9 @@ class TotalMiniSection(BaseMiniSection):
         delimiter_count = sum(1 for ln in self.sum_lines if ln.type == LineType.DELIMITER)
         
         if sum_line_count != 1:
-            errors.append(f"包含 {sum_line_count} SummaryLines")
+            errors.append(f"包含 {sum_line_count} SumLines")
         if delimiter_count != 2:
-            errors.append(f"包含 {delimiter_count} 分隔符行")
+            errors.append(f"包含 {delimiter_count} Delimiters")
         
         return errors
 
@@ -170,6 +172,10 @@ class TotalMiniSection(BaseMiniSection):
         ln = self.get_total_line()
         if ln:
             ln.value = value
+
+    def checksum(self, expected_sum: int) -> bool:
+        actual_sum = self.get_total()
+        return actual_sum == expected_sum
 
 
 # ======================================== #

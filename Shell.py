@@ -1,7 +1,7 @@
 # File:        Shell.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-02
+# LastEdit:    2026-04-03
 # Description: 交互式命令行
 
 import cmd
@@ -10,24 +10,6 @@ from colorama import Fore, Style
 
 from LedgerHub import LedgerHub
 from Engine import Engine
-
-
-# ======================================== #
-#    工具函数
-# ======================================== #
-
-def _parse(arg: str) -> list[str]:
-    """把arg字符串安全拆分成token列表"""
-    try:
-        return shlex.split(arg)
-    except ValueError as e:
-        raise ValueError(f"参数解析出错: {e}") from e
-
-
-def _require(parts: list[str], n: int, usage: str):
-    """检查参数数量"""
-    if len(parts) < n:
-        raise ValueError(f"参数不足 用法: {usage}")
 
 
 # ======================================== #
@@ -41,16 +23,30 @@ class Shell(cmd.Cmd):
 
     def __init__(self, hub: LedgerHub, engine: Engine):
         super().__init__()
-        self._hub    = hub
+        self._hub = hub
         self._engine = engine
 
     # ----- 内部辅助 -------------------- #
 
+    def _parse(self, arg: str) -> list[str]:
+        try:
+            return shlex.split(arg)
+        except ValueError as e:
+            raise ValueError(f"参数解析出错: {e}") from e
+
+    def _require(self, parts: list[str], m: int, n: int, usage: str):
+        if len(parts) < m:
+            raise ValueError(f"参数不足 用法: {usage}")
+        elif len(parts) > n:
+            raise ValueError(f"参数过多 用法: {usage}")
+        else:
+            return
+
     def _run(self, fn):
         try:
-            print(f"--------------------------------------------------")
+            print(f"{Fore.CYAN}{'-'*50}{Style.RESET_ALL}")
             fn()
-            print(f"--------------------------------------------------")
+            print(f"{Fore.CYAN}{'-'*50}{Style.RESET_ALL}")
         except ValueError as e:
             print(f"{Fore.RED}[!]{Style.RESET_ALL} {e}")
         except KeyError as e:
@@ -66,114 +62,79 @@ class Shell(cmd.Cmd):
 
     # ----- 查看 -------------------- #
 
+    def do_validate(self, _):
+        """validate"""
+        def run():
+            self._engine.validate()
+        self._run(run)
+
     def do_ts(self, _):
         """ts"""
         def run():
-            gen_ledger = self._hub.get_gen_ledger()
-            filepath   = self._hub.get_filepath("fa")
-            timestamp  = gen_ledger.tail.timestamp
-            print(f"  {filepath:<14} {timestamp if timestamp else 'NONE'}")
+            gen_entry = self._hub.get_gen_entry()
+            timestamp  = gen_entry.ledger.tail.timestamp
+            print(f"  {gen_entry.filepath:<14} {timestamp if timestamp else 'NONE'}")
 
-            for alias in self._hub.list_ledger_alias():
-                ledger    = self._hub.get_ledger(alias)
-                filepath  = self._hub.get_filepath(alias)
-                timestamp = ledger.tail.timestamp
-                print(f"  {filepath:<14} {timestamp if timestamp else 'NONE'}")
-        self._run(run)
-
-    def do_ls(self, _):
-        """ls"""
-        def run():
-            alias_list = self._hub.list_ledger_alias()
-            for alias in alias_list:
-                ledger = self._hub.get_ledger(alias)
-                name   = self._hub.get_name(alias)
-                print(f"── {name} ──")
-                for seg in ledger.segments:
-                    print(f"  {seg.name}")
-                print("")
+            for entry in self._hub.get_entries():
+                timestamp = entry.ledger.tail.timestamp
+                print(f"  {entry.filepath:<14} {timestamp if timestamp else 'NONE'}")
         self._run(run)
 
     def do_print(self, arg):
-        """print <账目别名> [分段名]"""
+        """print <账目别名>"""
         def run():
-            parts = _parse(arg)
-            _require(parts, 1, "print <账目别名> [分段名]")
-            ledger = self._hub.get_ledger(parts[0])
+            parts = self._parse(arg)
+            self._require(parts, 1, 1, "print <账目别名>")
 
-            if len(parts) == 1:
-                print(ledger.to_raw())
-            else:
-                seg = ledger.get_segment(parts[1])
-                if seg is None:
-                    raise ValueError(f"找不到区间: {parts[1]}")
-                print(seg.to_raw())
+            ledger = self._hub.get_entry(parts[0]).ledger
+            print(ledger.to_raw())
         self._run(run)
 
-    def do_sum(self, arg):
-        """sum [<账目别名> [分段名]]"""
+    def do_show(self, arg):
+        """show <sum>"""
         def run():
-            parts = _parse(arg)
+            parts = self._parse(arg)
+            self._require(parts, 1, 1, "show <sum>")
 
-            if not parts:
-                for alias in self._hub.list_ledger_alias():
-                    self._engine.show_ledger_sum(alias)
-                return
-
-            alias = parts[0]
-            ledger = self._hub.get_ledger(alias)
-
-            if len(parts) == 1:
-                self._engine.show_ledger_sum(alias)
+            if parts[0] == "sum":
+                self._engine.show_all_sum()
             else:
-                self._engine.show_segment_sum(alias, parts[1])
+                raise ValueError(f"未知参数: {parts[0]}")
         self._run(run)
-
-    # ----- 校验 -------------------- #
-
-    def do_check(self, arg):
-        """check [账目]"""
-        def run():
-            parts = _parse(arg)
-            if parts:
-                alias = parts[0]
-                if alias not in self._hub.list_ledger_alias() and alias != "fa":
-                    raise ValueError(f"无效的账目别名: {alias}")
-                alias_list = [alias]
-            else:
-                alias_list = self._hub.list_ledger_alias()
-
-            for alias in alias_list:
-                self._engine.check_ledger(alias)
-        self._run(run)
-
 
     # ----- 操作 -------------------- #
 
-    def do_recalc(self, arg):
-        """recalc <month|life|collect|gen>"""
+    def do_check(self, _):
+        """check"""
         def run():
-            parts = _parse(arg)
+            self._engine.check_all()
+        self._run(run)
+
+    def do_rebuild(self, arg):
+        """rebuild [<month|life|collect|gen>]"""
+        def run():
+            parts = self._parse(arg)
+            self._require(parts, 0, 1, "rebuild [<month|life|collect|gen>]")
 
             if not parts:
-                self._engine.recalculate_all()
+                self._engine.rebuild_all()
             elif parts[0] == "month":
-                self._engine.recalculate_month()
+                self._engine.rebuild_month()
             elif parts[0] == "life":
-                self._engine.recalculate_life()
+                self._engine.rebuild_life()
             elif parts[0] == "collect":
-                self._engine.recalculate_collect()
+                self._engine.rebuild_collect()
             elif parts[0] == "gen":
-                self._engine.recalculate_gen()
+                self._engine.rebuild_gen()
             else:
                 raise ValueError(f"未知账目: {parts[0]}")
         self._run(run)
 
     def do_sync(self, arg):
-        """sync <month|life|collect>"""
+        """sync [<month|life|collect>]"""
         def run():
-            parts = _parse(arg)
-            #_require(parts, 1, "sync <month|life|collect>")
+            parts = self._parse(arg)
+            self._require(parts, 0, 1, "sync [<month|life|collect>]")
 
             if not parts:
                 self._engine.sync_all()
@@ -188,7 +149,7 @@ class Shell(cmd.Cmd):
                 self._engine.sync_collect()
                 print(f"  Collect 已同步")
             else:
-                raise ValueError(f"未知同步目标: {parts[0]}")
+                raise ValueError(f"未知账目: {parts[0]}")
         self._run(run)
 
     def do_update(self, _):
@@ -197,51 +158,52 @@ class Shell(cmd.Cmd):
             self._engine.update()
         self._run(run)
 
-    def do_save(self, arg):
+    # ----- 重载 -------------------- #
+
+    def do_reload(self, _):
+        """reload"""
+        def run():
+            self._hub.reload_all()
+        self._run(run)
+        self._engine.validate()
+        print(f"{Fore.CYAN}{'-'*50}{Style.RESET_ALL}")
+
+    # ----- 保存 -------------------- #
+
+    def do_save(self, _):
         """save"""
         def run():
             self._hub.save_all()
         self._run(run)
 
-    def do_reload(self, arg):
-        """reload"""
-        def run():
-            self._hub.reload_all()
-            print("  所有账目已重载")
-        self._run(run)
-
     # ----- Debug -------------------- #
 
     def do_dump(self, arg):
-        """dump [账目]"""
+        """dump <账目别名>"""
         def run():
-            parts = _parse(arg)
-            if parts and parts[0] == "fa":
-                self._hub.get_gen_ledger().dump()
-            elif parts:
-                self._hub.get_ledger(parts[0]).dump()
+            parts = self._parse(arg)
+            self._require(parts, 1, 1, "dump <账目别名>")
+
+            if parts[0] == "fa":
+                self._hub.get_gen_entry().ledger.dump()
+            elif parts[0] in self._hub.get_alias_list():
+                self._hub.get_entry(parts[0]).ledger.dump()
             else:
-                for name in self._hub.list_ledger_alias():
-                    print(f"\nLedger: {name}")
-                    self._hub.get_ledger(name).dump()
+                raise ValueError(f"无效账目别名: {parts[0]}")
         self._run(run)
 
     def do_repr(self, arg):
-        """repr [账目]"""
+        """repr <账目别名>"""
         def run():
-            parts = _parse(arg)
-            if parts and parts[0] == "fa":
-                print(self._hub.get_gen_ledger().__repr__())
-            elif parts:
-                print(self._hub.get_ledger(parts[0]).__repr__())
+            parts = self._parse(arg)
+            self._require(parts, 1, 1, "repr <账目别名>")
+
+            if parts[0] == "fa":
+                print(self._hub.get_gen_entry().ledger.__repr__())
+            elif parts[0] in self._hub.get_alias_list():
+                print(self._hub.get_entry(parts[0]).ledger.__repr__())
             else:
-                name = self._hub.get_name("fa")
-                print(f"\n── {name} ──")
-                print(self._hub.get_gen_ledger().__repr__())
-                for alias in self._hub.list_ledger_alias():
-                    name = self._hub.get_name(alias)
-                    print(f"\n── {name} ──")
-                    print(self._hub.get_ledger(alias).__repr__())
+                raise ValueError(f"无效账目别名: {parts[0]}")
         self._run(run)
 
     def do_test(self, _):

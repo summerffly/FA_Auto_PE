@@ -1,7 +1,7 @@
 # File:        Segment/General.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-25
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-03
 # Description: General分段模块
 
 from dataclasses import dataclass, field
@@ -27,29 +27,21 @@ class WealthBlock:
 
     @property
     def initial_wealth(self) -> int:
-        """ 初始财富（固定不变）"""
         ln = self._get_line("初始财富")
         return ln.value if ln else 0
 
     @property
     def current_wealth(self) -> int:
-        """ 当前财富 """
         ln = self._get_line("当前财富")
         return ln.value if ln else 0
 
     def set_current_wealth(self, value: int):
-        """ 更新当前财富 """
         ln = self._get_line("当前财富")
         if ln:
             ln.value = value
 
-    def calc_current_wealth(self, segments_total: int) -> int:
-        """ 根据初始财富和segments总和计算当前财富 """
-        return self.initial_wealth + segments_total
-
     def checksum(self, segments_total: int) -> bool:
-        """ 验证当前财富是否正确 """
-        return self.current_wealth == self.calc_current_wealth(segments_total)
+        return self.current_wealth == self.initial_wealth + segments_total
 
 
 # ======================================== #
@@ -64,8 +56,7 @@ class ExtraBlock:
     def unit_lines(self) -> List[Line]:
         return [ln for ln in self.lines if ln.type == LineType.UNIT]
 
-    def get_total(self) -> int:
-        """ 额外支出总和 """
+    def get_sum(self) -> int:
         return sum(ln.value for ln in self.unit_lines)
 
 
@@ -88,60 +79,50 @@ class AllocationBlock:
 
     @property
     def disposable_wealth(self) -> int:
-        """ 可支配财富 """
         ln = self._get_primary_lines()
         return ln[0].value if ln else 0
 
     def set_disposable_wealth(self, value: int):
-        """ 更新可支配财富 """
         lines = self._get_primary_lines()
         if lines:
             lines[0].value = value
-
-    @property
-    def primary_line(self) -> Optional[Line]:
-        """ 主分配行（阿里-余额宝，第一行）"""
-        lines = self.allocation_lines
-        return lines[0] if lines else None
-
-    @property
-    def secondary_lines(self) -> List[Line]:
-        """ 次要分配行（固定不变，第二行起）"""
-        return self.allocation_lines[1:]
 
     @property
     def allocation_lines(self) -> List[Line]:
         """ 资产分布各行（可支配财富以外）"""
         return self._get_primary_lines()[1:]
 
-    def get_secondary_total(self) -> int:
+    @property
+    def primary_line(self) -> Optional[Line]:
+        """ 主分配行（第一行）"""
+        lines = self.allocation_lines
+        return lines[0] if lines else None
+
+    @property
+    def secondary_lines(self) -> List[Line]:
+        """ 次要分配行（第二行起）"""
+        return self.allocation_lines[1:]
+
+    def get_secondary_sum(self) -> int:
         """ 固定分配总和（除主分配行以外）"""
         return sum(ln.value for ln in self.secondary_lines)
 
-    def get_allocation_total(self) -> int:
+    def get_allocation_sum(self) -> int:
         """ 资产分布总和 """
         return sum(ln.value for ln in self.allocation_lines)
 
-    def calc_disposable_wealth(self, current_wealth: int, special_total: int) -> int:
-        """ 根据当前财富和特殊支出计算可支配财富 """
-        return current_wealth + special_total
-
-    def calc_primary_value(self) -> int:
-        """ 计算主分配行的值（可支配财富扣除固定分配后的剩余）"""
-        return self.disposable_wealth - self.get_secondary_total()
-
-    def recalculate(self):
+    def rebuild(self):
         """ 重建主分配行的值 """
         ln = self.primary_line
         if ln:
-            ln.value = self.calc_primary_value()
+            ln.value = self.disposable_wealth - self.get_secondary_sum()
 
-    def checksum(self, current_wealth: int, special_total: int) -> bool:
+    def checksum(self, current_wealth: int, extra_sum: int) -> bool:
         """ 验证可支配财富是否正确 """
-        expected = self.calc_disposable_wealth(current_wealth, special_total)
+        expected = current_wealth + extra_sum
         return (
             self.disposable_wealth == expected and
-            self.disposable_wealth == self.get_allocation_total()
+            self.disposable_wealth == self.get_allocation_sum()
         )
 
 
@@ -183,9 +164,9 @@ class GeneralSection:
         return self.wealth_block.current_wealth if self.wealth_block else 0
 
     @property
-    def special_total(self) -> int:
+    def extra_sum(self) -> int:
         """ 特殊支出总和 """
-        return self.extra_block.get_total() if self.extra_block else 0
+        return self.extra_block.get_sum() if self.extra_block else 0
 
     @property
     def disposable_wealth(self) -> int:
@@ -194,19 +175,15 @@ class GeneralSection:
 
     # ----- 重建 -------------------- #
 
-    def recalculate(self, segments_total: int):
-        """ 根据segments总和重建所有计算值 """
+    def rebuild(self, segments_total: int):
         if self.wealth_block:
-            new_current = self.wealth_block.calc_current_wealth(segments_total)
+            new_current = self.wealth_block.initial_wealth + segments_total
             self.wealth_block.set_current_wealth(new_current)
 
         if self.allocation_block:
-            new_disposable = self.allocation_block.calc_disposable_wealth(
-                self.current_wealth,
-                self.special_total
-            )
+            new_disposable = self.current_wealth + self.extra_sum
             self.allocation_block.set_disposable_wealth(new_disposable)
-            self.allocation_block.recalculate()
+            self.allocation_block.rebuild()
 
     # ----- 验证 -------------------- #
 
@@ -216,7 +193,7 @@ class GeneralSection:
             if not self.wealth_block.checksum(segments_total):
                 return False
         if self.allocation_block:
-            if not self.allocation_block.checksum(self.current_wealth, self.special_total):
+            if not self.allocation_block.checksum(self.current_wealth, self.extra_sum):
                 return False
         return True
 

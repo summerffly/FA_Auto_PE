@@ -1,7 +1,7 @@
 # File:        Ledger/Base.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-03
 # Description: Ledger抽象基类
 
 from abc import ABC, abstractmethod
@@ -77,14 +77,7 @@ class BaseLedger(LedgerMixin, ABC):
 
     # ----- 汇总操作 -------------------- #
 
-    def checksum_segment(self, name: str) -> bool:
-        """ 验证指定分段汇总 """
-        seg = self.get_segment(name)
-        if seg is None:
-            raise ValueError(f"segment 不存在: {name}")
-        return seg.checksum()
-
-    def checkcum_ledger(self) -> bool:
+    def checksum(self) -> bool:
         """ 验证所有分段汇总 """
         return all(seg.checksum() for seg in self.segments)
 
@@ -96,7 +89,7 @@ class BaseLedger(LedgerMixin, ABC):
         return total_sum
 
     @abstractmethod
-    def recalculate(self):
+    def rebuild(self):
         """ 重建整个账目 """
         raise NotImplementedError
 

@@ -1,7 +1,7 @@
 # File:        Ledger/Life.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-03-30
+# LastEdit:    2026-04-03
 # Description: Life账目实现
 
 from dataclasses import dataclass, field
@@ -22,29 +22,32 @@ class LifeLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_LifeLedgerParser":
         return _LifeLedgerParser(lines, ledger=LifeLedger())
 
-    def recalculate(self):
+    def rebuild(self):
         for seg in self.segments:
-            seg.recalculate_sum()
+            seg.rebuild()
 
-    def get_month_income(self, month_no: str) -> int:
-        """ 获取指定月的收入总计 """
+    def get_month_segment(self, month_no: str) -> LifeSection | None:
         for seg in self.segments:
             if isinstance(seg, LifeSection) and seg.month_no == month_no:
-                return seg.get_income()
+                return seg
+        return None
+
+    def get_month_income(self, month_no: str) -> int:
+        seg = self.get_month_segment(month_no)
+        if seg is not None:
+            return seg.get_income()
         return 0
 
     def get_month_expense(self, month_no: str) -> int:
-        """ 获取指定月的支出总计 """
-        for seg in self.segments:
-            if isinstance(seg, LifeSection) and seg.month_no == month_no:
-                return seg.get_expense()
+        seg = self.get_month_segment(month_no)
+        if seg is not None:
+            return seg.get_expense()
         return 0
 
     def get_month_balance(self, month_no: str) -> int:
-        """ 获取指定月的结余总计 """
-        for seg in self.segments:
-            if isinstance(seg, LifeSection) and seg.month_no == month_no:
-                return seg.get_balance()
+        seg = self.get_month_segment(month_no)
+        if seg is not None:
+            return seg.get_balance()
         return 0
 
     def __repr__(self):

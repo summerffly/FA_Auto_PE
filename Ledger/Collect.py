@@ -1,7 +1,7 @@
 # File:        Ledger/Collect.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-03
 # Description: Collect账目实现
 
 from dataclasses import dataclass
@@ -22,42 +22,26 @@ class CollectLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_CollectLedgerParser":
         return _CollectLedgerParser(lines, ledger=CollectLedger())
 
-    def recalculate(self):
-        # 重建每个分段
+    def rebuild(self):
         for seg in self.segments:
-            seg.recalculate_sum()
+            seg.rebuild()
         
-        # 重建总计
         if self.total:
-            self.recalculate_total()
-    
+            total_sum = self.get_all_segments_sum()
+            self.total.set_total(total_sum)
 
     def get_total_value(self) -> Optional[int]:
-        """获取总计值"""
         if self.total is None:
             return None
         else:
             return self.total.get_total()
 
-    def recalculate_total(self):
-        """ 重建总计 """
+    def checksum(self) -> bool:
         if self.total is None:
-            return
-
-        total_sum = self.get_all_segments_sum()
-        self.total.set_total(total_sum)
-
-    def checksum_total(self) -> bool:
-        """验证总计是否正确"""
-        if self.total is None:
-            return True
-        
-        total_value = self.get_total_value()
-        if total_value is None:
             return False
-        
-        all_sections_sum = self.get_all_segments_sum()
-        return total_value == all_sections_sum
+        else:
+            all_sections_sum = self.get_all_segments_sum()
+            return self.total.checksum(all_sections_sum)
 
     def __repr__(self):
         return (

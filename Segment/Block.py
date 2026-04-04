@@ -20,6 +20,8 @@ from Line import Line, LineType
 class BaseBlock(ABC):
     block_lines: List[Line] = field(default_factory=list)
 
+    # ----- 序列化 -------------------- #
+
     def to_lines(self) -> List[Line]:
         return self.block_lines
 

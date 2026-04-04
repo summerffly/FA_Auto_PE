@@ -2,7 +2,7 @@
 
 ## 安装python依赖包
 - colorama
-- wcwidth
+- rich
 - pyinstaller
 
 ## 打包命令

@@ -78,26 +78,22 @@ class GeneralLedger(LedgerMixin):
         life_total = sum(seg.balance for seg in self.life_segments)
         return collect_total + life_total
 
-    def recalculate(self):
+    def rebuild(self):
         """ 重建 Ledger 的所有计算值 """
         if self.general:
             segments_total = self.get_segments_total()
-            self.general.recalculate(segments_total)
-
-    def checkcum_ledger(self) -> bool:
-        """ 验证 General 的所有计算值 """
-        if self.general is None:
-            return True
-        segments_total = self.get_segments_total()
-        return self.general.checksum(segments_total)
+            self.general.rebuild(segments_total)
 
     # ----- 验证方法 -------------------- #
 
     def checksum(self) -> bool:
         """ 验证所有区块 """
-        return True
-
-    # ----- 序列化方法 -------------------- #
+        if self.general is None:
+            return True
+        segments_total = self.get_segments_total()
+        return self.general.checksum(segments_total)
+    
+    # ----- 序列化 -------------------- #
 
     def to_lines(self) -> List[Line]:
         all_lines: List[Line] = []
@@ -115,7 +111,6 @@ class GeneralLedger(LedgerMixin):
     # ----- Debug -------------------- #
 
     def validate(self) -> List[str]:
-        """ 验证账目结构，返回错误信息列表 """
         errors = []
 
         # 检查重复的分段名称
@@ -124,17 +119,19 @@ class GeneralLedger(LedgerMixin):
             errors.append("存在重复的分段名称")
 
         # 检查 collect_segments
-        for sec in self.collect_segments:
-            sec_errors = sec.validate()
-            errors.extend([f"collect_segment '{sec.name}': {err}" for err in sec_errors])
+        for seg in self.collect_segments:
+            seg_errors = seg.validate()
+            errors.extend([f"collect_segment '{seg.name}': {err}" for err in seg_errors])
 
         # 检查 life_segments
-        for sec in self.life_segments:
-            sec_errors = sec.validate()
-            errors.extend([f"life_segment '{sec.name}': {err}" for err in sec_errors])
+        for seg in self.life_segments:
+            seg_errors = seg.validate()
+            errors.extend([f"life_segment '{seg.name}': {err}" for err in seg_errors])
 
         # 检查 tail
-        if self.tail:
+        if not self.tail:
+            errors.append("缺失 tail")
+        else:
             tail_errors = self.tail.validate()
             errors.extend([f"tail: {err}" for err in tail_errors])
 

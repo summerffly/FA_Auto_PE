@@ -128,6 +128,11 @@ class GeneralLedger(LedgerMixin):
             seg_errors = seg.validate()
             errors.extend([f"life_segment '{seg.name}': {err}" for err in seg_errors])
 
+        # 检查 general
+        if self.general:
+            general_errors = self.general.validate()
+            errors.extend([f"general: {err}" for err in general_errors])
+
         # 检查 tail
         if not self.tail:
             errors.append("缺失 tail")

@@ -1,7 +1,7 @@
 # File:        Segment/Block.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-04
 # Description: Block分段模块
 
 from abc import ABC, abstractmethod
@@ -48,8 +48,7 @@ class TailBlock(BaseBlock):
             errors.append(f"包含 {timestamp_line_cnt} EOF")
         return errors
     
-    @property
-    def timestamp_line(self) -> Optional[Line]:
+    def get_timestamp_line(self) -> Optional[Line]:
         for ln in self.block_lines:
             if ln.type == LineType.TIMESTAMP:
                 return ln
@@ -57,11 +56,11 @@ class TailBlock(BaseBlock):
 
     @property
     def timestamp(self) -> str:
-        ln = self.timestamp_line
+        ln = self.get_timestamp_line()
         return ln.content.strip() if ln else ""
     
     def refresh_timestamp(self):
-        ln = self.timestamp_line
+        ln = self.get_timestamp_line()
         if ln:
             ln.content = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

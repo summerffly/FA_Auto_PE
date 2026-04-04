@@ -35,19 +35,19 @@ class LifeLedger(BaseLedger):
     def get_month_income(self, month_no: str) -> int:
         seg = self.get_month_segment(month_no)
         if seg is not None:
-            return seg.get_income()
+            return seg.income
         return 0
 
     def get_month_expense(self, month_no: str) -> int:
         seg = self.get_month_segment(month_no)
         if seg is not None:
-            return seg.get_expense()
+            return seg.expense
         return 0
 
     def get_month_balance(self, month_no: str) -> int:
         seg = self.get_month_segment(month_no)
         if seg is not None:
-            return seg.get_balance()
+            return seg.balance
         return 0
 
     def __repr__(self):

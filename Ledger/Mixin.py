@@ -32,7 +32,12 @@ class LedgerMixin:
         """ 从Line对象列表解析账目 """
         raise NotImplementedError(f"{cls.__name__} 未实现 parse_lines()")
 
-    # ----- 序列化方法 -------------------- #
+    # ----- 序列化 -------------------- #
+
+    def refresh_timestamp(self):
+        """ 刷新时间戳 """
+        if self.tail:
+            self.tail.refresh_timestamp()
 
     def to_lines(self):
         """ 子类实现方法 """
@@ -40,8 +45,7 @@ class LedgerMixin:
 
     def to_raw(self) -> str:
         """ 转换为原始文本 """
-        lines = self.to_lines()
-        raw_lines = [ln.to_raw() for ln in lines]
+        raw_lines = [ln.to_raw() for ln in self.to_lines()]
         raw_text = "\n".join(raw_lines)
         if not raw_text.endswith("\n"):
             raw_text += "\n"
@@ -52,14 +56,5 @@ class LedgerMixin:
         text = self.to_raw()
         with open(filepath, "w", encoding=encoding) as f:
             f.write(text)
-
-    def save_as(self, filepath: str, encoding: str = "utf-8"):
-        """ 另存文件 """
-        self.save(filepath, encoding)
-
-    def refresh_timestamp(self):
-        """ 刷新时间戳 """
-        if self.tail:
-            self.tail.refresh_timestamp()
 
     # ----- END -------------------- #

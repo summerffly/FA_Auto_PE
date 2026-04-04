@@ -128,7 +128,9 @@ class BaseLedger(LedgerMixin, ABC):
             errors.extend([f"total: {err}" for err in total_errors])
         
         # 验证尾部
-        if self.tail:
+        if not self.tail:
+            errors.append([f"tail: 缺失尾部"])
+        else:
             tail_errors = self.tail.validate()
             errors.extend([f"tail: {err}" for err in tail_errors])
         

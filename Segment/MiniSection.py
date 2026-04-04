@@ -1,7 +1,7 @@
 # File:        Segment/MiniSection.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-01
+# LastEdit:    2026-04-04
 # Description: MiniSection分段模块
 
 from abc import ABC, abstractmethod
@@ -74,7 +74,7 @@ class LifeMiniSection(BaseMiniSection):
             errors.append(f"包含 {sum_line_count} SumLines")
         return errors
     
-    def get_line(self, key: str) -> Optional[Line]:
+    def get_sum_line(self, key: str) -> Optional[Line]:
         for ln in self.sum_lines:
             if ln.type == LineType.MONTH_SUM and key in ln.content:
                 return ln
@@ -82,31 +82,31 @@ class LifeMiniSection(BaseMiniSection):
 
     @property
     def income(self) -> int:
-        ln = self.get_line("收入")
+        ln = self.get_sum_line("收入")
         return ln.value if ln else 0
 
     @property
     def expense(self) -> int:
-        ln = self.get_line("支出")
+        ln = self.get_sum_line("支出")
         return ln.value if ln else 0
 
     @property
     def balance(self) -> int:
-        ln = self.get_line("结余")
+        ln = self.get_sum_line("结余")
         return ln.value if ln else 0
     
     def set_income(self, value: int):
-        ln = self.get_line("收入")
+        ln = self.get_sum_line("收入")
         if ln:
             ln.value = value
 
     def set_expense(self, value: int):
-        ln = self.get_line("支出")
+        ln = self.get_sum_line("支出")
         if ln:
             ln.value = value
 
     def set_balance(self, value: int):
-        ln = self.get_line("结余")
+        ln = self.get_sum_line("结余")
         if ln:
             ln.value = value
 
@@ -183,7 +183,6 @@ class TotalMiniSection(BaseMiniSection):
 # ======================================== #
 
 def make_minisection(titleline: Line, lines: List[Line]) -> BaseMiniSection:
-    raw = titleline.raw.strip()
     ltype = titleline.type
     
     if ltype == LineType.LIFE_TITLE:
@@ -193,4 +192,4 @@ def make_minisection(titleline: Line, lines: List[Line]) -> BaseMiniSection:
     elif ltype == LineType.TOTAL_TITLE:
         return TotalMiniSection(title_line=titleline, sum_lines=lines)
     else:
-        raise ValueError(f"未知 MiniSection 类型: {raw}")
+        raise ValueError(f"未知 MiniSection 类型: {titleline.raw.strip()}")

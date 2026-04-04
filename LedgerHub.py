@@ -1,7 +1,7 @@
 # File:        LedgerHub.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-23
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-04
 # Description: 所有账目合集
 
 from __future__ import annotations
@@ -113,27 +113,41 @@ class LedgerHub:
     def get_gen_entry(self) -> LedgerEntry:
         if self._gen_entry is None:
             raise RuntimeError("账目未加载")
-        return self._gen_entry
+        elif not isinstance(self._gen_entry.ledger, GeneralLedger):
+            raise TypeError(f"FA账目类型错误: {type(self._gen_entry.ledger).__name__}")
+        else:
+            return self._gen_entry
     
     def get_life_entry(self) -> LedgerEntry:
         entry = self._get_any_entry("life")
         if entry is None:
             raise RuntimeError("账目未加载")
-        return entry
+        elif not isinstance(entry.ledger, LifeLedger):
+            raise TypeError(f"life账目类型错误: {type(entry.ledger).__name__}")
+        else:
+            return entry
     
     def get_month_entries(self) -> list[LedgerEntry]:
         month_entries = []
         for entry in self._entries.values():
             if isinstance(entry.ledger, MonthLedger):
                 month_entries.append(entry)
-        return month_entries
+        
+        if not month_entries:
+            raise RuntimeError("未找到任何Month账目")
+        else:
+            return month_entries
     
     def get_collect_entries(self) -> list[LedgerEntry]:
         collect_entries = []
         for entry in self._entries.values():
             if isinstance(entry.ledger, CollectLedger):
                 collect_entries.append(entry)
-        return collect_entries
+        
+        if not collect_entries:
+            raise RuntimeError("未找到任何Collect账目")
+        else:
+            return collect_entries
     
     def get_entries(self) -> list[LedgerEntry]:
         return list(self._entries.values())

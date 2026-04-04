@@ -26,7 +26,7 @@ from .Mixin import LedgerMixin
 class BaseLedger(LedgerMixin, ABC):
     header: List[Line] = field(default_factory=list)
     segments: List[BaseSection] = field(default_factory=list)
-    total: Optional[BaseMiniSection] = None
+    total_seg: Optional[BaseMiniSection] = None
     tail: Optional[TailBlock] = None
 
     # ----- 解析方法 -------------------- #
@@ -39,25 +39,21 @@ class BaseLedger(LedgerMixin, ABC):
     @classmethod
     @abstractmethod
     def _create_parser(cls, lines: List[Line]) -> "_LedgerParser":
-        """ 创建类型解析器 """
         raise NotImplementedError
 
     # ----- 数据访问方法 -------------------- #
 
     @property
-    def segment_names(self) -> List[str]:
-        """ 获取所有分段名称 """
+    def seg_names(self) -> List[str]:
         return [seg.name for seg in self.segments]
 
     def get_segment(self, name: str) -> Optional[BaseSection]:
-        """ 获取指定分段 """
         for seg in self.segments:
             if seg.name == name:
                 return seg
         return None
 
     def get_segment_line(self, name: str, key: str) -> Optional[Line]:
-        """ 获取指定分段+行 """
         seg = self.get_segment(name)
         if seg is None:
             return None
@@ -67,8 +63,7 @@ class BaseLedger(LedgerMixin, ABC):
                 return ln
         return None
 
-    def mod_segment_line_value(self, name: str, key: str, new_value: int) -> bool:
-        """ 修改指定分段+行数值 """
+    def mod_segment_line(self, name: str, key: str, new_value: int) -> bool:
         ln = self.get_segment_line(name, key)
         if ln is None:
             return False
@@ -77,57 +72,42 @@ class BaseLedger(LedgerMixin, ABC):
 
     # ----- 汇总操作 -------------------- #
 
-    def checksum(self) -> bool:
-        """ 验证所有分段汇总 """
-        return all(seg.checksum() for seg in self.segments)
-
-    def get_all_segments_sum(self) -> int:
-        """获取所有分段的总和"""
-        total_sum = 0
-        for seg in self.segments:
-            total_sum += seg.get_sum()
-        return total_sum
-
     @abstractmethod
     def rebuild(self):
-        """ 重建整个账目 """
         raise NotImplementedError
 
-    # ----- 序列化方法 -------------------- #
+    def checksum(self) -> bool:
+        return all(seg.checksum() for seg in self.segments)
+
+    # ----- 序列化 -------------------- #
 
     def to_lines(self) -> List[Line]:
         all_lines: List[Line] = []
         all_lines.extend(self.header)
         for seg in self.segments:
             all_lines.extend(seg.to_lines())
-        if self.total:
-            all_lines.extend(self.total.to_lines())
+        if self.total_seg:
+            all_lines.extend(self.total_seg.to_lines())
         if self.tail:
             all_lines.extend(self.tail.to_lines())
         return all_lines
 
-    # ----- 验证和调试 -------------------- #
+    # ----- 验证 -------------------- #
 
     def validate(self) -> List[str]:
-        """验证账目结构"""
         errors = []
         
-        # 检查重复的Segment名称
-        names = self.segment_names
-        if len(names) != len(set(names)):
+        if len(self.seg_names) != len(set(self.seg_names)):
             errors.append("存在重复Segment")
 
-        # 验证每个分段
         for seg in self.segments:
             seg_errors = seg.validate()
             errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
 
-        # 验证总计
-        if self.total:
-            total_errors = self.total.validate()
-            errors.extend([f"total: {err}" for err in total_errors])
+        if self.total_seg:
+            total_errors = self.total_seg.validate()
+            errors.extend([f"total_seg: {err}" for err in total_errors])
         
-        # 验证尾部
         if not self.tail:
             errors.append([f"tail: 缺失尾部"])
         else:
@@ -135,30 +115,31 @@ class BaseLedger(LedgerMixin, ABC):
             errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
+    
+    # ----- Debug -------------------- #
 
     def dump(self):
-        """打印账目结构"""
         print("=== Ledger Dump ===")
-        print(f"Type     : {self.__class__.__name__}")
-        print(f"header   : {len(self.header)}")
-        print(f"segments : {len(self.segments)}")
-        print(f"total    : {self.total.name if self.total else 'None'}")
-        print(f"tail     : {len(self.tail.to_lines()) if self.tail else 0}")
+        print(f"Type      : {self.__class__.__name__}")
+        print(f"header    : {len(self.header)}")
+        print(f"segments  : {len(self.segments)}")
+        print(f"total_seg : {self.total_seg.name if self.total_seg else 'None'}")
+        print(f"tail      : {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
-        for i, sec in enumerate(self.segments, 1):
-            print(f"[Segment {i}] {sec.name}")
-            print(f"   class     : {sec.__class__.__name__}")
-            print(f"   summaries : {len(sec.sum_lines)}")
-            print(f"   body      : {len(sec.body_lines)}")
-            print(f"   units     : {len(sec.unit_lines)}")
-            print(f"   blanks    : {len(sec.blank_lines)}")
+        for i, seg in enumerate(self.segments, 1):
+            print(f"[Segment {i}] {seg.name}")
+            print(f"   class  : {seg.__class__.__name__}")
+            print(f"   sum    : {len(seg.sum_lines)}")
+            print(f"   body   : {len(seg.body_lines)}")
+            print(f"   units  : {len(seg.unit_lines)}")
+            print(f"   blanks : {len(seg.blank_lines)}")
             print()
 
-        if self.total:
-            print(f"[Total] {self.total.name}")
-            print(f"   class : {self.total.__class__.__name__}")
-            print(f"   lines : {len(self.total.sum_lines)}")
+        if self.total_seg:
+            print(f"[Total] {self.total_seg.name}")
+            print(f"   class : {self.total_seg.__class__.__name__}")
+            print(f"   lines : {len(self.total_seg.sum_lines)}")
             print()
 
     def __repr__(self):
@@ -166,7 +147,7 @@ class BaseLedger(LedgerMixin, ABC):
             f"{self.__class__.__name__}("
             f"header={len(self.header)}, "
             f"segments={len(self.segments)}, "
-            f"total={self.total.name if self.total else 'None'}, "
+            f"total_seg={self.total_seg.name if self.total_seg else 'None'}, "
             f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )
 

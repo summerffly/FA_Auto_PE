@@ -80,10 +80,6 @@ class BaseSection(ABC):
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def validate(self) -> List[str]:
-        raise NotImplementedError
-
-    @abstractmethod
     def rebuild(self):
         raise NotImplementedError
 
@@ -95,10 +91,14 @@ class BaseSection(ABC):
     def is_sum_line(self, line: Line) -> bool:
         raise NotImplementedError
 
+    @property
     @abstractmethod
-    def get_sum(self) -> int:
+    def sum(self) -> int:
         raise NotImplementedError
 
+    @abstractmethod
+    def validate(self) -> List[str]:
+        raise NotImplementedError
 
 # ======================================== #
 #    LifeSection
@@ -106,14 +106,6 @@ class BaseSection(ABC):
 
 @dataclass
 class LifeSection(BaseSection):
-
-    def validate(self) -> List[str]:
-        errors = []
-        if len(self.sum_lines) != 3:
-            errors.append(f"包含 {len(self.sum_lines)} SumLines")
-        if not self.body_lines:
-            errors.append(f"缺失 BodyLines")
-        return errors
 
     def rebuild(self):
         expected_income = self.income
@@ -137,7 +129,8 @@ class LifeSection(BaseSection):
     def is_sum_line(self, line: Line) -> bool:
         return line.type == LineType.MONTH_SUM
 
-    def get_sum(self) -> int:
+    @property
+    def sum(self) -> int:
         return self.balance
 
     def get_sum_line(self, keyword: str) -> Optional[Line]:
@@ -176,6 +169,14 @@ class LifeSection(BaseSection):
         if balance_line:
             balance_line.value = value
 
+    def validate(self) -> List[str]:
+        errors = []
+        if len(self.sum_lines) != 3:
+            errors.append(f"包含 {len(self.sum_lines)} SumLines")
+        if not self.body_lines:
+            errors.append(f"缺失 BodyLines")
+        return errors
+
     def __repr__(self):
         return (
             f"LifeSection(name={self.name!r}, "
@@ -191,14 +192,6 @@ class LifeSection(BaseSection):
  
 @dataclass
 class SingleAggrSection(BaseSection, ABC):
- 
-    def validate(self) -> List[str]:
-        errors = []
-        if len(self.sum_lines) != 1:
-            errors.append(f"包含 {len(self.sum_lines)} SumLines")
-        if not self.body_lines:
-            errors.append(f"缺失 BodyLines")
-        return errors
 
     def rebuild(self):
         sum_value = sum(ln.value for ln in self.unit_lines)
@@ -216,7 +209,8 @@ class SingleAggrSection(BaseSection, ABC):
     def is_sum_line(self, line: Line) -> bool:
         return line.type == LineType.SECTION_SUM
 
-    def get_sum(self) -> int:
+    @property
+    def sum(self) -> int:
         ln = self.sum_lines[0] if self.sum_lines else None
         return ln.value if ln and ln.type == LineType.SECTION_SUM else 0
 
@@ -225,6 +219,13 @@ class SingleAggrSection(BaseSection, ABC):
         if ln and ln.type == LineType.SECTION_SUM:
             ln.value = value
 
+    def validate(self) -> List[str]:
+        errors = []
+        if len(self.sum_lines) != 1:
+            errors.append(f"包含 {len(self.sum_lines)} SumLines")
+        if not self.body_lines:
+            errors.append(f"缺失 BodyLines")
+        return errors
 
 # ======================================== #
 #    MonthSection

@@ -66,7 +66,7 @@ class ExtraBlock:
     def unit_lines(self) -> List[Line]:
         return [ln for ln in self.lines if ln.type == LineType.UNIT]
 
-    def get_sum(self) -> int:
+    def get_extra_sum(self) -> int:
         return sum(ln.value for ln in self.unit_lines)
     
     def validate(self) -> List[str]:
@@ -223,7 +223,7 @@ class GeneralSection:
 
     @property
     def extra_sum(self) -> int:
-        return self.extra_block.get_sum() if self.extra_block else 0
+        return self.extra_block.get_extra_sum() if self.extra_block else 0
 
     @property
     def disposable_wealth(self) -> int:

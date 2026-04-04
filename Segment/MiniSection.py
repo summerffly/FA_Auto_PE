@@ -130,7 +130,8 @@ class CollectMiniSection(BaseMiniSection):
                 return ln
         return None
 
-    def get_sum(self) -> int:
+    @property
+    def sum(self) -> int:
         ln = self.get_sum_line()
         return ln.value if ln else 0
     
@@ -164,7 +165,8 @@ class TotalMiniSection(BaseMiniSection):
                 return ln
         return None
 
-    def get_total(self) -> int:
+    @property
+    def total(self) -> int:
         ln = self.get_total_line()
         return ln.value if ln else 0
     
@@ -174,8 +176,7 @@ class TotalMiniSection(BaseMiniSection):
             ln.value = value
 
     def checksum(self, expected_sum: int) -> bool:
-        actual_sum = self.get_total()
-        return actual_sum == expected_sum
+        return self.total == expected_sum
 
 
 # ======================================== #

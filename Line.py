@@ -54,9 +54,9 @@ class LineRegex:
     # # Digital Kingdom
     HEADER: ClassVar[re.Pattern] = re.compile(r'^# (.+)$')
     # ## life.M03
-    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (life\.)(M\d{2})$')
+    LIFE_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (life\.)(M|M\d{2}|M\d{2}n)$')
     # ## DGtler.M03
-    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+\.)(M\d{2})$')
+    MONTH_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!life)(.+\.)(M\d{2}|M\d{2}n)$')
     # ## NGXP
     COLLECT_TITLE: ClassVar[re.Pattern] = re.compile(r'^## (?!.*\.M\d{2}$)(.+)$')
     # ### Total
@@ -69,7 +69,7 @@ class LineRegex:
     # 币安货币 : +80000
     PRIMARY: ClassVar[re.Pattern] = re.compile(r'^(?!Total)(?!>)(.+) : ([+-])(\d+)$')
     # > 02月收入 : +1030
-    MONTH_SUM: ClassVar[re.Pattern] = re.compile(r'^> (\d{2}.+) : ([+-])(\d+)$')
+    MONTH_SUM: ClassVar[re.Pattern] = re.compile(r'^> (\S+) : ([+-])(\d+)$')
     # > +100
     SECTION_SUM: ClassVar[re.Pattern] = re.compile(r'^> ([+-])(\d+)$')
     # Total : +820

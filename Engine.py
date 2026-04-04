@@ -42,7 +42,7 @@ class Engine:
         table.add_row(filepath, ledger_type, status)
 
         for error in errors:
-            print(f"{filepath} {ledger_type} {Fore.RED}[!]{Style.RESET_ALL} {error}")
+            print(f"{filepath} {Fore.RED}[!]{Style.RESET_ALL} {error}")
 
     def validate_ledger(self, entry: LedgerEntry, table: Table = None):
         ledger = entry.ledger
@@ -54,7 +54,7 @@ class Engine:
         table.add_row(filepath, ledger_type, status)
 
         for error in errors:
-            print(f"{filepath} {ledger_type} {Fore.RED}[!]{Style.RESET_ALL} {error}")
+            print(f"{filepath} {Fore.RED}[!]{Style.RESET_ALL} {error}")
     
     def validate(self):
         table = Table(show_header=True, header_style="magenta")
@@ -80,7 +80,7 @@ class Engine:
             ledger = entry.ledger
             name = entry.name
             for seg in ledger.segments:
-                sum = seg.get_sum()
+                sum = seg.sum
                 sign = "+" if sum >= 0 else ""
                 table.add_row(name, seg.name, f"{sign}{sum}")
             table.add_row(
@@ -113,7 +113,7 @@ class Engine:
             status = "✅" if ok else "❌"
             table.add_row(name, seg.name, status)
         
-        if ledger.total:
+        if ledger.total_seg:
             ok = ledger.checksum()
             status = "✅" if ok else "❌"
             table.add_row(name, "Total", status)
@@ -172,31 +172,27 @@ class Engine:
         for entry in self._hub.get_month_entries():
             for month in self._get_month_list():
                 month_sum = entry.ledger.get_month_sum(f"{entry.name}{month[1:]}")
-                life_ledger.mod_segment_line_value(f"life.{month}", entry.name, month_sum)
+                life_ledger.mod_segment_line(f"life.{month}", entry.name, month_sum)
 
     def sync_life(self):
         gen_ledger  = self._hub.get_gen_entry().ledger
         life_ledger = self._hub.get_life_entry().ledger
 
-        for month in self._get_month_list():
-            month_income  = life_ledger.get_month_income(month)
-            month_expense = life_ledger.get_month_expense(month)
-            month_balance = life_ledger.get_month_balance(month)
+        month_income_sum = sum(seg.income for seg in life_ledger.segments)
+        month_expense_sum = sum(seg.expense for seg in life_ledger.segments)
+        month_balance_sum = sum(seg.balance for seg in life_ledger.segments)
 
-            gen_ledger.mod_life_segment_value(
-                month,
-                month_income,
-                month_expense,
-                month_balance
-            )
+        gen_ledger.mod_life_segment(
+            month_income_sum,
+            month_expense_sum,
+            month_balance_sum
+        )
 
     def sync_collect(self):
         gen_ledger = self._hub.get_gen_entry().ledger
 
         for entry in self._hub.get_collect_entries():
-            ledger = entry.ledger
-            total_value = ledger.get_total_value()
-            gen_ledger.mod_collect_segment_value(entry.name, total_value)
+            gen_ledger.mod_collect_segment(entry.name, entry.ledger.total)
 
     def sync_all(self):
         self.sync_month()

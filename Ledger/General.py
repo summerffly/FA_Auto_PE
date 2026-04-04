@@ -1,7 +1,7 @@
 # File:        Ledger/Sum.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-02
+# LastEdit:    2026-04-04
 # Description: 汇总账目对象
 
 from dataclasses import dataclass, field
@@ -24,8 +24,8 @@ from .Mixin import LedgerMixin
 @dataclass
 class GeneralLedger(LedgerMixin):
     header: List[Line] = field(default_factory=list)
+    life_segment: Optional[LifeMiniSection] = None
     collect_segments: List[CollectMiniSection] = field(default_factory=list)
-    life_segments: List[LifeMiniSection] = field(default_factory=list)
     general: Optional[GeneralSection] = None
     tail: Optional[TailBlock] = None
 
@@ -38,48 +38,41 @@ class GeneralLedger(LedgerMixin):
 
     # ----- 数据访问方法 -------------------- #
 
-    def get_segment_names(self) -> List[str]:
-        """ 获取所有分段名称 """
-        collect_names = [seg.name for seg in self.collect_segments]
-        life_names = [seg.name for seg in self.life_segments]
-        return collect_names + life_names
+    @property
+    def seg_names(self) -> List[str]:
+        return [seg.name for seg in self.collect_segments]
+
+    def get_life_segment(self) -> Optional[LifeMiniSection]:
+        return self.life_segment
 
     def get_collect_segment(self, name: str) -> Optional[CollectMiniSection]:
-        """ 获取 Collect 分段 """
         for seg in self.collect_segments:
             if seg.name == name:
                 return seg
         return None
 
-    def get_life_segment(self, month_no: str) -> Optional[LifeMiniSection]:
-        """ 获取 Life 分段 """
-        for seg in self.life_segments:
-            if seg.month_no == month_no:
-                return seg
-        return None
-
-    def mod_collect_segment_value(self, name: str, new_value: int):
-        """ 修改指定 Collect 分段数值 """
+    def mod_collect_segment(self, name: str, new_value: int):
         seg = self.get_collect_segment(name)
         if seg is not None:
             seg.set_sum(new_value)
+        else:
+            raise ValueError(f"无法找到 Collect 分段 '{name}'")
 
-    def mod_life_segment_value(self, month_no: str, income_value: int, expense_value: int, balance_value: int):
-        """ 修改指定月份 Life 分段数值 """
-        seg = self.get_life_segment(month_no)
+    def mod_life_segment(self, income_value: int, expense_value: int, balance_value: int):
+        seg = self.get_life_segment()
         if seg is not None:
             seg.set_income(income_value)
             seg.set_expense(expense_value)
             seg.set_balance(balance_value)
+        else:
+            raise ValueError(f"无法找到 Life 分段")
 
     def get_segments_total(self) -> int:
-        """ 所有分段的总和 """
-        collect_total = sum(seg.get_sum() for seg in self.collect_segments)
-        life_total = sum(seg.balance for seg in self.life_segments)
+        life_total = self.life_segment.balance if self.life_segment else 0
+        collect_total = sum(seg.sum for seg in self.collect_segments)
         return collect_total + life_total
 
     def rebuild(self):
-        """ 重建 Ledger 的所有计算值 """
         if self.general:
             segments_total = self.get_segments_total()
             self.general.rebuild(segments_total)
@@ -98,9 +91,9 @@ class GeneralLedger(LedgerMixin):
     def to_lines(self) -> List[Line]:
         all_lines: List[Line] = []
         all_lines.extend(self.header)
+        if self.life_segment:
+            all_lines.extend(self.life_segment.to_lines())
         for seg in self.collect_segments:
-            all_lines.extend(seg.to_lines())
-        for seg in self.life_segments:
             all_lines.extend(seg.to_lines())
         if self.general:
             all_lines.extend(self.general.to_lines())
@@ -113,27 +106,21 @@ class GeneralLedger(LedgerMixin):
     def validate(self) -> List[str]:
         errors = []
 
-        # 检查重复的分段名称
-        names = self.get_segment_names()
-        if len(names) != len(set(names)):
+        if len(self.seg_names) != len(set(self.seg_names)):
             errors.append("存在重复的分段名称")
 
-        # 检查 collect_segments
+        if self.life_segment:
+            seg_errors = self.life_segment.validate()
+            errors.extend([f"life_segment '{self.life_segment.name}': {err}" for err in seg_errors])
+
         for seg in self.collect_segments:
             seg_errors = seg.validate()
             errors.extend([f"collect_segment '{seg.name}': {err}" for err in seg_errors])
 
-        # 检查 life_segments
-        for seg in self.life_segments:
-            seg_errors = seg.validate()
-            errors.extend([f"life_segment '{seg.name}': {err}" for err in seg_errors])
-
-        # 检查 general
         if self.general:
             general_errors = self.general.validate()
             errors.extend([f"general: {err}" for err in general_errors])
 
-        # 检查 tail
         if not self.tail:
             errors.append("缺失 tail")
         else:
@@ -146,26 +133,26 @@ class GeneralLedger(LedgerMixin):
         print("=== GeneralLedger Dump ===")
         print(f"Type             : {self.__class__.__name__}")
         print(f"header           : {len(self.header)}")
+        print(f"life_segment     : {self.life_segment.name if self.life_segment else 'None'}")
         print(f"collect_segments : {len(self.collect_segments)}")
-        print(f"life_segments    : {len(self.life_segments)}")
         print(f"general          : {self.general.name if self.general else 'None'}")
         print(f"tail             : {len(self.tail.to_lines()) if self.tail else 0}")
         print()
+
+        if self.life_segment:
+            print(f"[LifeSegment] {self.life_segment.name}")
+            print(f"   class     : {self.life_segment.__class__.__name__}")
+            print(f"   summaries : {len(self.life_segment.sum_lines)}")
+            print(f"   income    : {'+' if self.life_segment.income >= 0 else ''}{self.life_segment.income}")
+            print(f"   expense   : {'+' if self.life_segment.expense >= 0 else ''}{self.life_segment.expense}")
+            print(f"   balance   : {'+' if self.life_segment.balance >= 0 else ''}{self.life_segment.balance}")
+            print()
 
         for i, seg in enumerate(self.collect_segments, 1):
             print(f"[CollectSegment {i}] {seg.name}")
             print(f"   class     : {seg.__class__.__name__}")
             print(f"   summaries : {len(seg.sum_lines)}")
-            print(f"   value     : {'+' if seg.get_sum() >= 0 else ''}{seg.get_sum()}")
-            print()
-
-        for i, seg in enumerate(self.life_segments, 1):
-            print(f"[LifeSegment {i}] {seg.name}")
-            print(f"   class     : {seg.__class__.__name__}")
-            print(f"   summaries : {len(seg.sum_lines)}")
-            print(f"   income    : {'+' if seg.income >= 0 else ''}{seg.income}")
-            print(f"   expense   : {'+' if seg.expense >= 0 else ''}{seg.expense}")
-            print(f"   balance   : {'+' if seg.balance >= 0 else ''}{seg.balance}")
+            print(f"   value     : {'+' if seg.sum >= 0 else ''}{seg.sum}")
             print()
 
         if self.general:
@@ -180,8 +167,8 @@ class GeneralLedger(LedgerMixin):
         return (
             f"GeneralLedger("
             f"header={len(self.header)}, "
+            f"life_segment={self.life_segment.name if self.life_segment else 'None'}, "
             f"collect_segments={len(self.collect_segments)}, "
-            f"life_segments={len(self.life_segments)}, "
             f"general={self.general.name if self.general else 'None'}, "
             f"tail={len(self.tail.to_lines()) if self.tail else 0})"
         )
@@ -243,7 +230,7 @@ class _GeneralLedgerParser:
         else:
             minisection = make_minisection(self.curr_head, self.curr_lines)
             if isinstance(minisection, LifeMiniSection):
-                self.ledger.life_segments.append(minisection)
+                self.ledger.life_segment = minisection
             else:
                 self.ledger.collect_segments.append(minisection)
 

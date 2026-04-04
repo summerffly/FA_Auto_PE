@@ -22,10 +22,6 @@ class MonthLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_MonthLedgerParser":
         return _MonthLedgerParser(lines, ledger=MonthLedger())
 
-    def rebuild(self):
-        for seg in self.segments:
-            seg.rebuild()
-
     def get_month_segment(self, month: str) -> MonthSection | None:
         for seg in self.segments:
             if seg.name == month and isinstance(seg, MonthSection):
@@ -35,8 +31,12 @@ class MonthLedger(BaseLedger):
     def get_month_sum(self, month: str) -> int:
         seg = self.get_month_segment(month)
         if seg is not None:
-            return seg.get_sum()
+            return seg.sum
         return 0
+
+    def rebuild(self):
+        for seg in self.segments:
+            seg.rebuild()
 
     def __repr__(self):
         return (

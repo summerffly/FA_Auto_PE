@@ -10,6 +10,7 @@ from colorama import Fore, Style
 
 from LedgerHub import LedgerHub
 from Engine import Engine
+from Viewer import Viewer
 
 
 # ======================================== #
@@ -21,10 +22,11 @@ class Shell(cmd.Cmd):
     intro  = ""
     prompt = "[CMD] > "
 
-    def __init__(self, hub: LedgerHub, engine: Engine):
+    def __init__(self, hub: LedgerHub, engine: Engine, viewer: Viewer):
         super().__init__()
         self._hub = hub
         self._engine = engine
+        self._viewer = viewer
 
     # ----- 内部辅助 -------------------- #
 
@@ -90,14 +92,16 @@ class Shell(cmd.Cmd):
             print(ledger.to_raw())
         self._run(run)
 
-    def do_show(self, arg):
-        """show <sum>"""
+    def do_view(self, arg):
+        """view <sum|fa>"""
         def run():
             parts = self._parse(arg)
-            self._require(parts, 1, 1, "show <sum>")
+            self._require(parts, 1, 1, "view <sum|fa>")
 
-            if parts[0] == "sum":
-                self._engine.show_all_sum()
+            if parts[0] == "fa":
+                self._viewer.view_gen_ledger()
+            elif parts[0] == "sum":
+                self._viewer.view_all_sum()
             else:
                 raise ValueError(f"未知参数: {parts[0]}")
         self._run(run)

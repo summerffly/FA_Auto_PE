@@ -42,49 +42,39 @@ class GeneralLedger(LedgerMixin):
     def seg_names(self) -> List[str]:
         return [seg.name for seg in self.collect_segments]
 
-    def get_life_segment(self) -> Optional[LifeMiniSection]:
+    def get_life_segment(self) -> LifeMiniSection:
         return self.life_segment
 
-    def get_collect_segment(self, name: str) -> Optional[CollectMiniSection]:
+    def get_collect_segment(self, name: str) -> CollectMiniSection:
         for seg in self.collect_segments:
             if seg.name == name:
                 return seg
-        return None
-
-    def mod_collect_segment(self, name: str, new_value: int):
-        seg = self.get_collect_segment(name)
-        if seg is not None:
-            seg.set_sum(new_value)
-        else:
-            raise ValueError(f"无法找到 Collect 分段 '{name}'")
+        raise ValueError(f"无法找到 Collect 分段 '{name}'")
 
     def mod_life_segment(self, income_value: int, expense_value: int, balance_value: int):
         seg = self.get_life_segment()
-        if seg is not None:
-            seg.set_income(income_value)
-            seg.set_expense(expense_value)
-            seg.set_balance(balance_value)
-        else:
-            raise ValueError(f"无法找到 Life 分段")
+        seg.set_income(income_value)
+        seg.set_expense(expense_value)
+        seg.set_balance(balance_value)
 
-    def get_segments_total(self) -> int:
-        life_total = self.life_segment.balance if self.life_segment else 0
-        collect_total = sum(seg.sum for seg in self.collect_segments)
-        return collect_total + life_total
+    def mod_collect_segment(self, name: str, new_value: int):
+        seg = self.get_collect_segment(name)
+        seg.set_sum(new_value)
+
+    def get_segments_sum(self) -> int:
+        life_sum = self.life_segment.balance if self.life_segment else 0
+        collect_sum = sum(seg.sum for seg in self.collect_segments)
+        return life_sum + collect_sum
 
     def rebuild(self):
-        if self.general:
-            segments_total = self.get_segments_total()
-            self.general.rebuild(segments_total)
+        segments_sum = self.get_segments_sum()
+        self.general.rebuild(segments_sum)
 
     # ----- 验证方法 -------------------- #
 
     def checksum(self) -> bool:
-        """ 验证所有区块 """
-        if self.general is None:
-            return True
-        segments_total = self.get_segments_total()
-        return self.general.checksum(segments_total)
+        segments_sum = self.get_segments_sum()
+        return self.general.checksum(segments_sum)
     
     # ----- 序列化 -------------------- #
 
@@ -109,7 +99,9 @@ class GeneralLedger(LedgerMixin):
         if len(self.seg_names) != len(set(self.seg_names)):
             errors.append("存在重复的分段名称")
 
-        if self.life_segment:
+        if not self.life_segment:
+            errors.append("缺失 life_segment")
+        else:
             seg_errors = self.life_segment.validate()
             errors.extend([f"life_segment '{self.life_segment.name}': {err}" for err in seg_errors])
 
@@ -117,7 +109,9 @@ class GeneralLedger(LedgerMixin):
             seg_errors = seg.validate()
             errors.extend([f"collect_segment '{seg.name}': {err}" for err in seg_errors])
 
-        if self.general:
+        if not self.general:
+            errors.append("缺失 general")
+        else:
             general_errors = self.general.validate()
             errors.extend([f"general: {err}" for err in general_errors])
 
@@ -131,36 +125,32 @@ class GeneralLedger(LedgerMixin):
     
     def dump(self):
         print("=== GeneralLedger Dump ===")
-        print(f"Type             : {self.__class__.__name__}")
-        print(f"header           : {len(self.header)}")
-        print(f"life_segment     : {self.life_segment.name if self.life_segment else 'None'}")
-        print(f"collect_segments : {len(self.collect_segments)}")
-        print(f"general          : {self.general.name if self.general else 'None'}")
-        print(f"tail             : {len(self.tail.to_lines()) if self.tail else 0}")
+        print(f"class        : {self.__class__.__name__}")
+        print(f"header       : {len(self.header)}")
+        print(f"life_seg     : {self.life_segment.name if self.life_segment else 'None'}")
+        print(f"collect_segs : {len(self.collect_segments)}")
+        print(f"general      : {self.general.name if self.general else 'None'}")
+        print(f"tail         : {len(self.tail.to_lines()) if self.tail else 0}")
         print()
 
         if self.life_segment:
-            print(f"[LifeSegment] {self.life_segment.name}")
+            print(f"[LifeMiniSeg] {self.life_segment.name}")
             print(f"   class     : {self.life_segment.__class__.__name__}")
-            print(f"   summaries : {len(self.life_segment.sum_lines)}")
-            print(f"   income    : {'+' if self.life_segment.income >= 0 else ''}{self.life_segment.income}")
-            print(f"   expense   : {'+' if self.life_segment.expense >= 0 else ''}{self.life_segment.expense}")
-            print(f"   balance   : {'+' if self.life_segment.balance >= 0 else ''}{self.life_segment.balance}")
+            print(f"   sum_lines : {len(self.life_segment.sum_lines)}")
             print()
 
         for i, seg in enumerate(self.collect_segments, 1):
-            print(f"[CollectSegment {i}] {seg.name}")
+            print(f"[CollectMiniSeg {i}] {seg.name}")
             print(f"   class     : {seg.__class__.__name__}")
-            print(f"   summaries : {len(seg.sum_lines)}")
-            print(f"   value     : {'+' if seg.sum >= 0 else ''}{seg.sum}")
+            print(f"   sum_lines : {len(seg.sum_lines)}")
             print()
 
         if self.general:
             print(f"[General] {self.general.name}")
-            print(f"   class     : {self.general.__class__.__name__}")
-            print(f"   wealth    : {len(self.general.wealth_block.lines)}")
-            print(f"   extra     : {len(self.general.extra_block.lines)}")
-            print(f"   allocation: {len(self.general.allocation_block.lines)}")
+            print(f"   class      : {self.general.__class__.__name__}")
+            print(f"   wealth     : {len(self.general.wealth_block.lines)}")
+            print(f"   extra      : {len(self.general.extra_block.lines)}")
+            print(f"   allocation : {len(self.general.allocation_block.lines)}")
             print()
 
     def __repr__(self):

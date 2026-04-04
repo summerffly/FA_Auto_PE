@@ -5,10 +5,10 @@
 # Description: Life账目实现
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from Line import Line, LineType
-from Segment import LifeSection, make_section
+from Segment import BaseSection, LifeSection, make_section
 from .Base import BaseLedger, _BaseLedgerParser
 
 
@@ -22,33 +22,62 @@ class LifeLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_LifeLedgerParser":
         return _LifeLedgerParser(lines, ledger=LifeLedger())
 
-    def get_month_segment(self, month_no: str) -> LifeSection | None:
+    def get_month_segment(self, month_no: str) -> LifeSection:
         for seg in self.segments:
-            if isinstance(seg, LifeSection) and seg.month_no == month_no:
+            if seg.month_no == month_no:
                 return seg
-        return None
+        raise ValueError(f"无法找到 Life 分段 '{month_no}'")
 
-    def get_month_income(self, month_no: str) -> int:
+    def get_month_line(self, month_no: str, key: str) -> Line:
         seg = self.get_month_segment(month_no)
-        if seg is not None:
-            return seg.income
-        return 0
+        for ln in seg.body_lines:
+            if key in ln.content:
+                return ln
+        raise ValueError(f"无法找到 Life 分段 '{month_no}' 中的行包含 '{key}'")
 
-    def get_month_expense(self, month_no: str) -> int:
-        seg = self.get_month_segment(month_no)
-        if seg is not None:
-            return seg.expense
-        return 0
+    def mod_month_line(self, month_no: str, key: str, new_value: int):
+        ln = self.get_month_line(month_no, key)
+        ln.value = new_value
 
-    def get_month_balance(self, month_no: str) -> int:
-        seg = self.get_month_segment(month_no)
-        if seg is not None:
-            return seg.balance
-        return 0
+    @property
+    def income_sum(self) -> int:
+        return sum(seg.income for seg in self.segments)
+
+    @property
+    def expense_sum(self) -> int:
+        return sum(seg.expense for seg in self.segments)
+
+    @property
+    def balance_sum(self) -> int:
+        return sum(seg.balance for seg in self.segments)
 
     def rebuild(self):
         for seg in self.segments:
             seg.rebuild()
+
+    def validate(self) -> List[str]:
+        errors = []
+        
+        if len(self.seg_names) != len(set(self.seg_names)):
+            errors.append("月份Segment重复")
+
+        for seg in self.segments:
+            if not isinstance(seg, LifeSection):
+                errors.append(f"Segment '{seg.name}' 类型错误: 期望 LifeSection, 实际 {seg.__class__.__name__}")
+                continue
+
+            seg_errors = seg.validate()
+            for err in seg_errors:
+                errors.append(f"Segment '{seg.name}': {err}")
+        
+        if not self.tail:
+            errors.append([f"Tail: 缺失尾部"])
+        else:
+            tail_errors = self.tail.validate()
+            for err in tail_errors:
+                errors.append(f"Tail: {err}")
+        
+        return errors
 
     def __repr__(self):
         return (

@@ -23,34 +23,51 @@ class CollectLedger(BaseLedger):
         return _CollectLedgerParser(lines, ledger=CollectLedger())
 
     @property
-    def total(self) -> Optional[int]:
-        if self.total_seg is None:
-            return None
-        else:
-            return self.total_seg.total
+    def total(self) -> int:
+        return self.total_seg.total
 
     def get_total(self) -> int:
-        total_sum = 0
-        for seg in self.segments:
-            total_sum += seg.sum
-        return total_sum
+        return sum(seg.sum for seg in self.segments)
 
     def rebuild(self):
         for seg in self.segments:
             seg.rebuild()
         
-        if self.total_seg:
-            total_sum = self.get_total()
-            self.total_seg.set_total(total_sum)
+        total_sum = self.get_total()
+        self.total_seg.set_total(total_sum)
 
     def checksum(self) -> bool:
         if not all(seg.checksum() for seg in self.segments):
             return False
 
-        if self.total_seg is None:
-            return False
+        return self.total_seg.checksum(self.get_total())
+
+    def validate(self) -> List[str]:
+        errors = []
+        
+        if len(self.seg_names) != len(set(self.seg_names)):
+            errors.append("存在重复Segment")
+
+        for seg in self.segments:
+            if not isinstance(seg, CollectSection):
+                errors.append(f"存在非CollectSection的Segment: {seg.name} ({seg.__class__.__name__})")
+                continue
+            seg_errors = seg.validate()
+            errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
+
+        if not self.total_seg:
+            errors.append([f"total_seg: 缺失总计部分"])
         else:
-            return self.total_seg.checksum(self.get_total())
+            total_errors = self.total_seg.validate()
+            errors.extend([f"total_seg: {err}" for err in total_errors])
+        
+        if not self.tail:
+            errors.append([f"tail: 缺失尾部"])
+        else:
+            tail_errors = self.tail.validate()
+            errors.extend([f"tail: {err}" for err in tail_errors])
+        
+        return errors
 
     def __repr__(self):
         return (

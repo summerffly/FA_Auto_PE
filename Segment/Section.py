@@ -80,14 +80,6 @@ class BaseSection(ABC):
     # ----- 抽象方法 -------------------- #
 
     @abstractmethod
-    def rebuild(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def checksum(self) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
     def is_sum_line(self, line: Line) -> bool:
         raise NotImplementedError
 
@@ -97,8 +89,17 @@ class BaseSection(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def rebuild(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def checksum(self) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
     def validate(self) -> List[str]:
         raise NotImplementedError
+
 
 # ======================================== #
 #    LifeSection
@@ -107,14 +108,29 @@ class BaseSection(ABC):
 @dataclass
 class LifeSection(BaseSection):
 
+    def is_sum_line(self, line: Line) -> bool:
+        return line.type == LineType.MONTH_SUM
+
+    @property
+    def sum(self) -> int:
+        return self.balance
+
     def rebuild(self):
         expected_income = self.income
         expected_expense = sum(ln.value for ln in self.unit_lines)
         expected_balance = expected_income + expected_expense
 
-        self.set_income(expected_income)
-        self.set_expense(expected_expense)
-        self.set_balance(expected_balance)
+        expense_line = self.get_sum_line("支出")
+        if not expense_line:
+            raise ValueError(f"LifeSection '{self.name}' 缺失支出行")
+        else:
+            expense_line.value = expected_expense
+
+        balance_line = self.get_sum_line("结余")
+        if not balance_line:
+            raise ValueError(f"LifeSection '{self.name}' 缺失结余行")
+        else:
+            balance_line.value = expected_balance
 
     def checksum(self) -> bool:
         expected_income = self.income
@@ -126,13 +142,6 @@ class LifeSection(BaseSection):
             self.balance == expected_balance
         )
 
-    def is_sum_line(self, line: Line) -> bool:
-        return line.type == LineType.MONTH_SUM
-
-    @property
-    def sum(self) -> int:
-        return self.balance
-
     def get_sum_line(self, keyword: str) -> Optional[Line]:
         for ln in self.sum_lines:
             if keyword in ln.content:
@@ -142,39 +151,43 @@ class LifeSection(BaseSection):
     @property
     def income(self) -> int:
         income_line = self.get_sum_line("收入")
-        return income_line.value if income_line else 0
+        if not income_line:
+            raise ValueError(f"LifeSection '{self.name}' 缺失收入行")
+        else:
+            return income_line.value
     
     @property
     def expense(self) -> int:
         expense_line = self.get_sum_line("支出")
-        return expense_line.value if expense_line else 0
+        if not expense_line:
+            raise ValueError(f"LifeSection '{self.name}' 缺失支出行")
+        else:
+            return expense_line.value
     
     @property
     def balance(self) -> int:
         balance_line = self.get_sum_line("结余")
-        return balance_line.value if balance_line else 0
-    
-    def set_income(self, value: int):
-        income_line = self.get_sum_line("收入")
-        if income_line:
-            income_line.value = value
-        
-    def set_expense(self, value: int):
-        expense_line = self.get_sum_line("支出")
-        if expense_line:
-            expense_line.value = value
-
-    def set_balance(self, value: int):
-        balance_line = self.get_sum_line("结余")
-        if balance_line:
-            balance_line.value = value
+        if not balance_line:
+            raise ValueError(f"LifeSection '{self.name}' 缺失结余行")
+        else:
+            return balance_line.value
 
     def validate(self) -> List[str]:
         errors = []
+
         if len(self.sum_lines) != 3:
             errors.append(f"包含 {len(self.sum_lines)} SumLines")
+
+        if not self.get_sum_line("收入"):
+            errors.append("缺失关键汇总行: '收入'")
+        if not self.get_sum_line("支出"):
+            errors.append("缺失关键汇总行: '支出'")
+        if not self.get_sum_line("结余"):
+            errors.append("缺失关键汇总行: '结余'")
+
         if not self.body_lines:
             errors.append(f"缺失 BodyLines")
+        
         return errors
 
     def __repr__(self):
@@ -193,39 +206,34 @@ class LifeSection(BaseSection):
 @dataclass
 class SingleAggrSection(BaseSection, ABC):
 
-    def rebuild(self):
-        sum_value = sum(ln.value for ln in self.unit_lines)
-        self.set_sum(sum_value)
-    
-    def checksum(self) -> bool:
-        if len(self.sum_lines) != 1:
-            return False
-        ln = self.sum_lines[0]
-        return (
-            ln.type == LineType.SECTION_SUM and
-            ln.value == sum(ln.value for ln in self.unit_lines)
-        )
- 
     def is_sum_line(self, line: Line) -> bool:
         return line.type == LineType.SECTION_SUM
 
     @property
     def sum(self) -> int:
-        ln = self.sum_lines[0] if self.sum_lines else None
-        return ln.value if ln and ln.type == LineType.SECTION_SUM else 0
+        ln = self.sum_lines[0]
+        return ln.value
 
-    def set_sum(self, value: int):
-        ln = self.sum_lines[0] if self.sum_lines else None
-        if ln and ln.type == LineType.SECTION_SUM:
-            ln.value = value
+    def rebuild(self):
+        sum_value = sum(ln.value for ln in self.unit_lines)
+        ln = self.sum_lines[0]
+        ln.value = sum_value
+    
+    def checksum(self) -> bool:
+        ln = self.sum_lines[0]
+        return ln.value == sum(ln.value for ln in self.unit_lines)
 
     def validate(self) -> List[str]:
         errors = []
+
         if len(self.sum_lines) != 1:
             errors.append(f"包含 {len(self.sum_lines)} SumLines")
+        
         if not self.body_lines:
             errors.append(f"缺失 BodyLines")
+        
         return errors
+
 
 # ======================================== #
 #    MonthSection
@@ -237,7 +245,7 @@ class MonthSection(SingleAggrSection):
     def __repr__(self):
         return (
             f"MonthSection(name={self.name!r}, "
-            f"summary={len(self.sum_lines)}, "
+            f"sum={len(self.sum_lines)}, "
             f"body={len(self.body_lines)}, "
             f"units={len(self.unit_lines)})"
         )
@@ -253,7 +261,7 @@ class CollectSection(SingleAggrSection):
     def __repr__(self):
         return (
             f"CollectSection(name={self.name!r}, "
-            f"summary={len(self.sum_lines)}, "
+            f"sum={len(self.sum_lines)}, "
             f"body={len(self.body_lines)}, "
             f"units={len(self.unit_lines)})"
         )

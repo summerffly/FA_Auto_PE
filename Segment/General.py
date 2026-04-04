@@ -229,6 +229,10 @@ class GeneralSection:
     def disposable_wealth(self) -> int:
         return self.allocation_block.disposable_wealth if self.allocation_block else 0
     
+    @property
+    def principal_line(self) -> int:
+        return self.allocation_block.principal_line if self.allocation_block else 0
+
     # ----- 验证方法 -------------------- #
 
     def validate(self) -> List[str]:
@@ -239,14 +243,20 @@ class GeneralSection:
         if self.wealth_block:
             wealth_errors = self.wealth_block.validate()
             errors.extend([f"wealth_block: {err}" for err in wealth_errors])
+        else:
+            errors.append("缺失 wealth_block")
 
         if self.extra_block:
             extra_errors = self.extra_block.validate()
             errors.extend([f"extra_block: {err}" for err in extra_errors])
+        else:
+            errors.append("缺失 extra_block")
 
         if self.allocation_block:
             allocation_errors = self.allocation_block.validate()
             errors.extend([f"allocation_block: {err}" for err in allocation_errors])
+        else:
+            errors.append("缺失 allocation_block")
 
         return errors
 

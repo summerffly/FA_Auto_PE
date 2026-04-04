@@ -47,30 +47,7 @@ class BaseLedger(LedgerMixin, ABC):
     def seg_names(self) -> List[str]:
         return [seg.name for seg in self.segments]
 
-    def get_segment(self, name: str) -> Optional[BaseSection]:
-        for seg in self.segments:
-            if seg.name == name:
-                return seg
-        return None
-
-    def get_segment_line(self, name: str, key: str) -> Optional[Line]:
-        seg = self.get_segment(name)
-        if seg is None:
-            return None
-        
-        for ln in seg.body_lines:
-            if ln.type == LineType.UNIT and key in ln.content:
-                return ln
-        return None
-
-    def mod_segment_line(self, name: str, key: str, new_value: int) -> bool:
-        ln = self.get_segment_line(name, key)
-        if ln is None:
-            return False
-        ln.value = new_value
-        return True
-
-    # ----- 汇总操作 -------------------- #
+    # ----- 操作 -------------------- #
 
     @abstractmethod
     def rebuild(self):
@@ -94,33 +71,15 @@ class BaseLedger(LedgerMixin, ABC):
 
     # ----- 验证 -------------------- #
 
+    @abstractmethod
     def validate(self) -> List[str]:
-        errors = []
-        
-        if len(self.seg_names) != len(set(self.seg_names)):
-            errors.append("存在重复Segment")
-
-        for seg in self.segments:
-            seg_errors = seg.validate()
-            errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
-
-        if self.total_seg:
-            total_errors = self.total_seg.validate()
-            errors.extend([f"total_seg: {err}" for err in total_errors])
-        
-        if not self.tail:
-            errors.append([f"tail: 缺失尾部"])
-        else:
-            tail_errors = self.tail.validate()
-            errors.extend([f"tail: {err}" for err in tail_errors])
-        
-        return errors
+        raise NotImplementedError
     
     # ----- Debug -------------------- #
 
     def dump(self):
         print("=== Ledger Dump ===")
-        print(f"Type      : {self.__class__.__name__}")
+        print(f"class     : {self.__class__.__name__}")
         print(f"header    : {len(self.header)}")
         print(f"segments  : {len(self.segments)}")
         print(f"total_seg : {self.total_seg.name if self.total_seg else 'None'}")

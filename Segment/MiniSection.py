@@ -25,17 +25,14 @@ class BaseMiniSection(ABC):
     title_line: Line
     sum_lines: List[Line] = field(default_factory=list)
     _name: str = field(init=False)
-    _month_no: Optional[str] = field(init=False)
 
     def __post_init__(self):        
         self._name = ""
-        self._month_no = None
         self._parse_title()
 
     def _parse_title(self) -> str:
         if m := RE.LIFE_TITLE.match(self.title_line.raw):
             self._name = m.group(1) + m.group(2)
-            self._month_no = m.group(2)
         if m := RE.COLLECT_TITLE.match(self.title_line.raw):
             self._name = m.group(1)
         if m := RE.TOTAL_TITLE.match(self.title_line.raw):
@@ -44,10 +41,6 @@ class BaseMiniSection(ABC):
     @property
     def name(self) -> str:
         return self._name
-
-    @property
-    def month_no(self) -> Optional[str]:
-        return self._month_no
     
     # ----- 序列化 -------------------- #
 
@@ -69,14 +62,16 @@ class BaseMiniSection(ABC):
 class LifeMiniSection(BaseMiniSection):
     def validate(self) -> List[str]:
         errors = []
+
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.MONTH_SUM)
         if sum_line_count != 3:
             errors.append(f"包含 {sum_line_count} SumLines")
+        
         return errors
     
     def get_sum_line(self, key: str) -> Optional[Line]:
         for ln in self.sum_lines:
-            if ln.type == LineType.MONTH_SUM and key in ln.content:
+            if key in ln.content:
                 return ln
         return None
 
@@ -119,16 +114,18 @@ class LifeMiniSection(BaseMiniSection):
 class CollectMiniSection(BaseMiniSection):
     def validate(self) -> List[str]:
         errors = []
+
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.SECTION_SUM)
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SumLines")
+        
         return errors
 
-    def get_sum_line(self) -> Optional[Line]:
+    def get_sum_line(self) -> Line:
         for ln in self.sum_lines:
             if ln.type == LineType.SECTION_SUM:
                 return ln
-        return None
+        raise ValueError("无法找到 Collect 分段的 SumLine")
 
     @property
     def sum(self) -> int:
@@ -149,6 +146,7 @@ class CollectMiniSection(BaseMiniSection):
 class TotalMiniSection(BaseMiniSection):
     def validate(self) -> List[str]:
         errors = []
+        
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.TOTAL)
         delimiter_count = sum(1 for ln in self.sum_lines if ln.type == LineType.DELIMITER)
         
@@ -159,11 +157,11 @@ class TotalMiniSection(BaseMiniSection):
         
         return errors
 
-    def get_total_line(self) -> Optional[Line]:
+    def get_total_line(self) -> Line:
         for ln in self.sum_lines:
             if ln.type == LineType.TOTAL:
                 return ln
-        return None
+        raise ValueError("无法找到 Total 分段的 SumLine")
 
     @property
     def total(self) -> int:

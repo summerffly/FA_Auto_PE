@@ -22,21 +22,40 @@ class MonthLedger(BaseLedger):
     def _create_parser(cls, lines: List[Line]) -> "_MonthLedgerParser":
         return _MonthLedgerParser(lines, ledger=MonthLedger())
 
-    def get_month_segment(self, month: str) -> MonthSection | None:
+    def get_month_segment(self, month_no: str) -> MonthSection:
         for seg in self.segments:
-            if seg.name == month and isinstance(seg, MonthSection):
+            if seg.month_no == month_no:
                 return seg
-        return None
+        raise ValueError(f"无法找到 Month 分段 '{month_no}'")
 
-    def get_month_sum(self, month: str) -> int:
-        seg = self.get_month_segment(month)
-        if seg is not None:
-            return seg.sum
-        return 0
+    def get_month_sum(self, month_no: str) -> int:
+        seg = self.get_month_segment(month_no)
+        return seg.sum
 
     def rebuild(self):
         for seg in self.segments:
             seg.rebuild()
+
+    def validate(self) -> List[str]:
+        errors = []
+        
+        if len(self.seg_names) != len(set(self.seg_names)):
+            errors.append("存在重复Segment")
+
+        for seg in self.segments:
+            if not isinstance(seg, MonthSection):
+                errors.append(f"Segment '{seg.name}' 类型错误: 期望 MonthSection, 实际 {seg.__class__.__name__}")
+                continue
+            seg_errors = seg.validate()
+            errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
+        
+        if not self.tail:
+            errors.append([f"tail: 缺失尾部"])
+        else:
+            tail_errors = self.tail.validate()
+            errors.extend([f"tail: {err}" for err in tail_errors])
+        
+        return errors
 
     def __repr__(self):
         return (

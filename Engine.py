@@ -68,28 +68,7 @@ class Engine:
 
         self.console.print(table)
 
-    # ----- / -------------------- #
-
-    def show_all_sum(self):
-        table = Table(show_header=True, header_style="magenta")
-        table.add_column("Ledger", style="cyan")
-        table.add_column("Segment", style="green")
-        table.add_column("Sum", justify="right")
-
-        for entry in self._hub.get_entries():
-            ledger = entry.ledger
-            name = entry.name
-            for seg in ledger.segments:
-                sum = seg.sum
-                sign = "+" if sum >= 0 else ""
-                table.add_row(name, seg.name, f"{sign}{sum}")
-            table.add_row(
-                    Text("─" * 10, style="dim"),
-                    Text("─" * 14, style="dim"),
-                    Text("─" * 8, style="dim"))
-        self.console.print(table)
-
-    # ----- / -------------------- #
+    # ----- 校验 -------------------- #
 
     def check_gen_ledger(self, table: Table = None):
         gen_ledger = self._hub.get_gen_entry().ledger
@@ -171,21 +150,17 @@ class Engine:
 
         for entry in self._hub.get_month_entries():
             for month in self._get_month_list():
-                month_sum = entry.ledger.get_month_sum(f"{entry.name}{month[1:]}")
-                life_ledger.mod_segment_line(f"life.{month}", entry.name, month_sum)
+                month_sum = entry.ledger.get_month_sum(f"{month}")
+                life_ledger.mod_month_line(f"{month}", entry.name, month_sum)
 
     def sync_life(self):
         gen_ledger  = self._hub.get_gen_entry().ledger
         life_ledger = self._hub.get_life_entry().ledger
 
-        month_income_sum = sum(seg.income for seg in life_ledger.segments)
-        month_expense_sum = sum(seg.expense for seg in life_ledger.segments)
-        month_balance_sum = sum(seg.balance for seg in life_ledger.segments)
-
         gen_ledger.mod_life_segment(
-            month_income_sum,
-            month_expense_sum,
-            month_balance_sum
+            life_ledger.income_sum,
+            life_ledger.expense_sum,
+            life_ledger.balance_sum
         )
 
     def sync_collect(self):

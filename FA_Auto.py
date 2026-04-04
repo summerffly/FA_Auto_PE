@@ -6,6 +6,7 @@ from colorama import Fore, Style
 
 from LedgerHub import LedgerHub
 from Engine import Engine
+from Viewer import Viewer
 from Shell import Shell
 from __about__ import APP_VERSION, BUILD_DATE
 
@@ -75,6 +76,7 @@ def main():
     # 创建实例
     hub = LedgerHub()
     engine = Engine(hub)
+    viewer = Viewer(hub)
 
     # 初始化
     try:
@@ -86,7 +88,7 @@ def main():
         return
     
     # 启动Shell
-    Shell(hub, engine).cmdloop()
+    Shell(hub, engine, viewer).cmdloop()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # File:        Segment/Section.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-22
-# LastEdit:    2026-04-04
+# LastEdit:    2026-04-06
 # Description: Section分段模块
 
 from abc import ABC, abstractmethod
@@ -174,20 +174,16 @@ class LifeSection(BaseSection):
 
     def validate(self) -> List[str]:
         errors = []
-
         if len(self.sum_lines) != 3:
             errors.append(f"包含 {len(self.sum_lines)} SumLines")
-
         if not self.get_sum_line("收入"):
-            errors.append("缺失关键汇总行: '收入'")
+            errors.append("缺失 income 行")
         if not self.get_sum_line("支出"):
-            errors.append("缺失关键汇总行: '支出'")
+            errors.append("缺失 expense 行")
         if not self.get_sum_line("结余"):
-            errors.append("缺失关键汇总行: '结余'")
-
+            errors.append("缺失 balance 行")
         if not self.body_lines:
             errors.append(f"缺失 BodyLines")
-        
         return errors
 
     def __repr__(self):
@@ -225,13 +221,10 @@ class SingleAggrSection(BaseSection, ABC):
 
     def validate(self) -> List[str]:
         errors = []
-
         if len(self.sum_lines) != 1:
             errors.append(f"包含 {len(self.sum_lines)} SumLines")
-        
         if not self.body_lines:
             errors.append(f"缺失 BodyLines")
-        
         return errors
 
 

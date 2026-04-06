@@ -1,7 +1,7 @@
 # File:        Ledger/Base.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-06
 # Description: Ledger抽象基类
 
 from abc import ABC, abstractmethod
@@ -12,7 +12,7 @@ from colorama import Fore, Style
 from Line import Line, LineType
 from Segment import (
     BaseSection, 
-    BaseMiniSection, 
+    TotalMiniSection, 
     TailBlock, make_tail_block
 )
 from .Mixin import LedgerMixin
@@ -26,7 +26,7 @@ from .Mixin import LedgerMixin
 class BaseLedger(LedgerMixin, ABC):
     header: List[Line] = field(default_factory=list)
     segments: List[BaseSection] = field(default_factory=list)
-    total_seg: Optional[BaseMiniSection] = None
+    total_seg: Optional[TotalMiniSection] = None
     tail: Optional[TailBlock] = None
 
     # ----- 解析方法 -------------------- #

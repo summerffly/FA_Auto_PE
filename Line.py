@@ -239,3 +239,5 @@ class Line:
 
     def __repr__(self):
         return f"Line({self.type.value}, val={self.value}, content={self.content!r})"
+    
+    # ----- EOF -------------------- #

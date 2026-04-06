@@ -1,7 +1,7 @@
 # File:        Ledger/Collect.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-06
 # Description: Collect账目实现
 
 from dataclasses import dataclass
@@ -9,6 +9,8 @@ from typing import List, Optional
 from Line import Line, LineType
 
 from Segment import CollectSection, make_section, make_minisection
+from Segment.Block import TailBlock
+from Segment.MiniSection import TotalMiniSection
 from .Base import BaseLedger, _BaseLedgerParser
 
 
@@ -44,28 +46,34 @@ class CollectLedger(BaseLedger):
 
     def validate(self) -> List[str]:
         errors = []
-        
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.append("存在重复Segment")
+            errors.extend([f"存在重复Segments"])
 
         for seg in self.segments:
             if not isinstance(seg, CollectSection):
-                errors.append(f"存在非CollectSection的Segment: {seg.name} ({seg.__class__.__name__})")
+                errors.extend([f"segment '{seg.name}' 类型错误: {type(seg).__name__}"])
                 continue
-            seg_errors = seg.validate()
-            errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
+            else:
+                seg_errors = seg.validate()
+                errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
 
         if not self.total_seg:
-            errors.append([f"total_seg: 缺失总计部分"])
+            errors.extend([f"缺失 total_seg"])
         else:
-            total_errors = self.total_seg.validate()
-            errors.extend([f"total_seg: {err}" for err in total_errors])
+            if not isinstance(self.total_seg, TotalMiniSection):
+                errors.extend([f"total_seg 类型错误: {type(self.total_seg).__name__}"])
+            else:
+                total_errors = self.total_seg.validate()
+                errors.extend([f"total_seg: {err}" for err in total_errors])
         
         if not self.tail:
-            errors.append([f"tail: 缺失尾部"])
+            errors.extend([f"缺失 tail"])
         else:
-            tail_errors = self.tail.validate()
-            errors.extend([f"tail: {err}" for err in tail_errors])
+            if not isinstance(self.tail, TailBlock):
+                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+            else:
+                tail_errors = self.tail.validate()
+                errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
 

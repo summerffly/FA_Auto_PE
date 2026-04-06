@@ -74,7 +74,7 @@ def main():
     os.chdir(base_dir)
 
     # 创建实例
-    hub = LedgerHub()
+    hub = LedgerHub(config_path="FA.toml")
     engine = Engine(hub)
     viewer = Viewer(hub)
 

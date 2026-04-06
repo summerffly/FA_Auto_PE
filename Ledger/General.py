@@ -1,7 +1,7 @@
 # File:        Ledger/Sum.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-04
+# LastEdit:    2026-04-06
 # Description: 汇总账目对象
 
 from dataclasses import dataclass, field
@@ -70,7 +70,7 @@ class GeneralLedger(LedgerMixin):
         segments_sum = self.get_segments_sum()
         self.general.rebuild(segments_sum)
 
-    # ----- 验证方法 -------------------- #
+    # ----- 验证 -------------------- #
 
     def checksum(self) -> bool:
         segments_sum = self.get_segments_sum()
@@ -97,29 +97,42 @@ class GeneralLedger(LedgerMixin):
         errors = []
 
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.append("存在重复的分段名称")
+            errors.extend([f"存在重复Segments"])
 
         if not self.life_segment:
-            errors.append("缺失 life_segment")
+            errors.extend([f"缺失 life_segment"])
         else:
-            seg_errors = self.life_segment.validate()
-            errors.extend([f"life_segment '{self.life_segment.name}': {err}" for err in seg_errors])
+            if not isinstance(self.life_segment, LifeMiniSection):
+                errors.extend([f"life_segment 类型错误: {type(self.life_segment).__name__}"])
+            else:
+                seg_errors = self.life_segment.validate()
+                errors.extend([f"life_segment '{self.life_segment.name}': {err}" for err in seg_errors])
 
         for seg in self.collect_segments:
-            seg_errors = seg.validate()
-            errors.extend([f"collect_segment '{seg.name}': {err}" for err in seg_errors])
+            if not isinstance(seg, CollectMiniSection):
+                errors.extend([f"collect_segment '{seg.name}' 类型错误: {type(seg).__name__}"])
+                continue
+            else:
+                seg_errors = seg.validate()
+                errors.extend([f"collect_segment '{seg.name}': {err}" for err in seg_errors])
 
         if not self.general:
-            errors.append("缺失 general")
+            errors.extend([f"缺失 general"])
         else:
-            general_errors = self.general.validate()
-            errors.extend([f"general: {err}" for err in general_errors])
+            if not isinstance(self.general, GeneralSection):
+                errors.extend([f"general 类型错误: {type(self.general).__name__}"])
+            else:
+                general_errors = self.general.validate()
+                errors.extend([f"general: {err}" for err in general_errors])
 
         if not self.tail:
-            errors.append("缺失 tail")
+            errors.extend([f"缺失 tail"])
         else:
-            tail_errors = self.tail.validate()
-            errors.extend([f"tail: {err}" for err in tail_errors])
+            if not isinstance(self.tail, TailBlock):
+                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+            else:
+                tail_errors = self.tail.validate()
+                errors.extend([f"tail: {err}" for err in tail_errors])
 
         return errors
     
@@ -147,10 +160,10 @@ class GeneralLedger(LedgerMixin):
 
         if self.general:
             print(f"[General] {self.general.name}")
-            print(f"   class      : {self.general.__class__.__name__}")
-            print(f"   wealth     : {len(self.general.wealth_block.lines)}")
-            print(f"   extra      : {len(self.general.extra_block.lines)}")
-            print(f"   allocation : {len(self.general.allocation_block.lines)}")
+            print(f"   class  : {self.general.__class__.__name__}")
+            print(f"   wealth : {len(self.general.wealth_block.lines)}")
+            print(f"   extra  : {len(self.general.extra_block.lines)}")
+            print(f"   combo  : {len(self.general.combo_block.lines)}")
             print()
 
     def __repr__(self):

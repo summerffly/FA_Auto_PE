@@ -1,7 +1,7 @@
 # File:        Ledger/Month.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-06
 # Description: Month账目实现
 
 from dataclasses import dataclass
@@ -9,6 +9,7 @@ from typing import List
 from Line import Line, LineType
 
 from Segment import MonthSection, make_section
+from Segment.Block import TailBlock
 from .Base import BaseLedger, _BaseLedgerParser
 
 
@@ -38,22 +39,25 @@ class MonthLedger(BaseLedger):
 
     def validate(self) -> List[str]:
         errors = []
-        
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.append("存在重复Segment")
+            errors.extend([f"存在重复Segments"])
 
         for seg in self.segments:
             if not isinstance(seg, MonthSection):
-                errors.append(f"Segment '{seg.name}' 类型错误: 期望 MonthSection, 实际 {seg.__class__.__name__}")
+                errors.extend([f"segment '{seg.name}' 类型错误: {type(seg).__name__}"])
                 continue
-            seg_errors = seg.validate()
-            errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
+            else:
+                seg_errors = seg.validate()
+                errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
         
         if not self.tail:
-            errors.append([f"tail: 缺失尾部"])
+            errors.extend([f"缺失 tail"])
         else:
-            tail_errors = self.tail.validate()
-            errors.extend([f"tail: {err}" for err in tail_errors])
+            if not isinstance(self.tail, TailBlock):
+                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+            else:
+                tail_errors = self.tail.validate()
+                errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
 

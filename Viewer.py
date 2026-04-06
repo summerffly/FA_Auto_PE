@@ -1,17 +1,16 @@
 # File:        Viewer.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-04-04
-# LastEdit:    2026-04-04
+# LastEdit:    2026-04-06
 # Description: FA系统查看器
 
-from typing import List
 from colorama import Fore, Style
 
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from LedgerHub import LedgerHub, LedgerEntry
+from LedgerHub import LedgerHub
 
 
 # ======================================== #
@@ -24,22 +23,29 @@ class Viewer:
         self._hub = hub
         self.console = Console()
 
-    # ----- 内部工具 -------------------- #
-
-    def _get_month_list(self) -> List[str]:
-        life_ledger = self._hub.get_life_entry().ledger
-        return [seg.month_no for seg in life_ledger.segments]
-
     # ----- 查看 -------------------- #
 
+    def view_ts(self):
+        table = Table(show_header=True, header_style="magenta")
+        table.add_column("Ledger", style="cyan")
+        table.add_column("Timestamp", style="green")
+
+        gen_entry = self._hub.get_gen_entry()
+        timestamp = gen_entry.ledger.tail.timestamp
+        table.add_row(gen_entry.filepath, str(timestamp) if timestamp else "NONE")
+
+        for entry in self._hub.get_entries():
+            timestamp = entry.ledger.tail.timestamp
+            table.add_row(entry.filepath, str(timestamp) if timestamp else "NONE")
+
+        self.console.print(table)
 
     def view_gen_ledger(self):
         table = Table(show_header=True, header_style="magenta")
         table.add_column("Line", style="green")
         table.add_column("Value", justify="right")
 
-        gen_entry = self._hub.get_gen_entry()
-        gen_ledger = gen_entry.ledger
+        gen_ledger = self._hub.get_gen_entry().ledger
 
         value = gen_ledger.general.initial_wealth
         sign = "+" if value >= 0 else ""
@@ -66,6 +72,10 @@ class Viewer:
         line = gen_ledger.general.principal_line
         sign = "+" if line.value >= 0 else ""
         table.add_row(line.content, f"{sign}{line.value}")
+
+        for sec_line in gen_ledger.general.secondary_lines:
+            sign = "+" if sec_line.value >= 0 else ""
+            table.add_row(sec_line.content, f"{sign}{sec_line.value}")
 
         self.console.print(table)
 

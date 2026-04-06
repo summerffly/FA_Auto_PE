@@ -1,14 +1,15 @@
 # File:        Ledger/Life.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-06
 # Description: Life账目实现
 
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 
 from Line import Line, LineType
-from Segment import BaseSection, LifeSection, make_section
+from Segment import LifeSection, make_section
+from Segment.Block import TailBlock
 from .Base import BaseLedger, _BaseLedgerParser
 
 
@@ -57,25 +58,25 @@ class LifeLedger(BaseLedger):
 
     def validate(self) -> List[str]:
         errors = []
-        
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.append("月份Segment重复")
+            errors.extend([f"存在重复Segments"])
 
         for seg in self.segments:
             if not isinstance(seg, LifeSection):
-                errors.append(f"Segment '{seg.name}' 类型错误: 期望 LifeSection, 实际 {seg.__class__.__name__}")
+                errors.extend([f"segment '{seg.name}' 类型错误: {type(seg).__name__}"])
                 continue
-
-            seg_errors = seg.validate()
-            for err in seg_errors:
-                errors.append(f"Segment '{seg.name}': {err}")
+            else:
+                seg_errors = seg.validate()
+                errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
         
         if not self.tail:
-            errors.append([f"Tail: 缺失尾部"])
+            errors.extend([f"缺失 tail"])
         else:
-            tail_errors = self.tail.validate()
-            for err in tail_errors:
-                errors.append(f"Tail: {err}")
+            if not isinstance(self.tail, TailBlock):
+                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+            else:
+                tail_errors = self.tail.validate()
+                errors.extend([f"tail: {err}" for err in tail_errors])
         
         return errors
 

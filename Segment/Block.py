@@ -1,7 +1,7 @@
 # File:        Segment/Block.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-04
+# LastEdit:    2026-04-06
 # Description: Block分段模块
 
 from abc import ABC, abstractmethod
@@ -40,12 +40,12 @@ class BaseBlock(ABC):
 class TailBlock(BaseBlock):
     def validate(self) -> List[str]:
         errors = []
-        timestamp_line_cnt = [ln for ln in self.block_lines if ln.type == LineType.TIMESTAMP]
-        eof_line_cnt = [ln for ln in self.block_lines if ln.type == LineType.EOF]
-        if len(timestamp_line_cnt) != 1:
-            errors.append(f"包含 {timestamp_line_cnt} Timestamp")
-        if len(eof_line_cnt) != 1:
-            errors.append(f"包含 {timestamp_line_cnt} EOF")
+        timestamp_lines = [ln for ln in self.block_lines if ln.type == LineType.TIMESTAMP]
+        eof_lines = [ln for ln in self.block_lines if ln.type == LineType.EOF]
+        if len(timestamp_lines) != 1:
+            errors.append(f"包含 {len(timestamp_lines)} Timestamp")
+        if len(eof_lines) != 1:
+            errors.append(f"包含 {len(eof_lines)} EOF")
         return errors
     
     def get_timestamp_line(self) -> Optional[Line]:

@@ -64,22 +64,20 @@ class Shell(cmd.Cmd):
 
     # ----- 查看 -------------------- #
 
-    def do_validate(self, _):
-        """validate"""
+    def do_view(self, arg):
+        """view <ts|fa|sum>"""
         def run():
-            self._engine.validate()
-        self._run(run)
+            parts = self._parse(arg)
+            self._require(parts, 1, 1, "view <ts|fa|sum>")
 
-    def do_ts(self, _):
-        """ts"""
-        def run():
-            gen_entry = self._hub.get_gen_entry()
-            timestamp  = gen_entry.ledger.tail.timestamp
-            print(f"  {gen_entry.filepath:<14} {timestamp if timestamp else 'NONE'}")
-
-            for entry in self._hub.get_entries():
-                timestamp = entry.ledger.tail.timestamp
-                print(f"  {entry.filepath:<14} {timestamp if timestamp else 'NONE'}")
+            if parts[0] == "ts":
+                self._viewer.view_ts()
+            elif parts[0] == "fa":
+                self._viewer.view_gen_ledger()
+            elif parts[0] == "sum":
+                self._viewer.view_all_sum()
+            else:
+                raise ValueError(f"未知参数: {parts[0]}")
         self._run(run)
 
     def do_print(self, arg):
@@ -92,21 +90,13 @@ class Shell(cmd.Cmd):
             print(ledger.to_raw())
         self._run(run)
 
-    def do_view(self, arg):
-        """view <sum|fa>"""
-        def run():
-            parts = self._parse(arg)
-            self._require(parts, 1, 1, "view <sum|fa>")
-
-            if parts[0] == "fa":
-                self._viewer.view_gen_ledger()
-            elif parts[0] == "sum":
-                self._viewer.view_all_sum()
-            else:
-                raise ValueError(f"未知参数: {parts[0]}")
-        self._run(run)
-
     # ----- 操作 -------------------- #
+
+    def do_validate(self, _):
+        """validate"""
+        def run():
+            self._engine.validate()
+        self._run(run)
 
     def do_check(self, _):
         """check"""
@@ -178,6 +168,12 @@ class Shell(cmd.Cmd):
         """save"""
         def run():
             self._hub.save_all()
+        self._run(run)
+
+    def do_bakup(self, _):
+        """bakup"""
+        def run():
+            self._hub.backup_all()
         self._run(run)
 
     # ----- Debug -------------------- #

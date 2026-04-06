@@ -1,7 +1,7 @@
 # File:        Segment/MiniSection.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-04
+# LastEdit:    2026-04-06
 # Description: MiniSection分段模块
 
 from abc import ABC, abstractmethod
@@ -62,11 +62,9 @@ class BaseMiniSection(ABC):
 class LifeMiniSection(BaseMiniSection):
     def validate(self) -> List[str]:
         errors = []
-
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.MONTH_SUM)
         if sum_line_count != 3:
             errors.append(f"包含 {sum_line_count} SumLines")
-        
         return errors
     
     def get_sum_line(self, key: str) -> Optional[Line]:
@@ -114,11 +112,9 @@ class LifeMiniSection(BaseMiniSection):
 class CollectMiniSection(BaseMiniSection):
     def validate(self) -> List[str]:
         errors = []
-
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.SECTION_SUM)
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SumLines")
-        
         return errors
 
     def get_sum_line(self) -> Line:
@@ -146,15 +142,12 @@ class CollectMiniSection(BaseMiniSection):
 class TotalMiniSection(BaseMiniSection):
     def validate(self) -> List[str]:
         errors = []
-        
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.TOTAL)
         delimiter_count = sum(1 for ln in self.sum_lines if ln.type == LineType.DELIMITER)
-        
         if sum_line_count != 1:
             errors.append(f"包含 {sum_line_count} SumLines")
         if delimiter_count != 2:
             errors.append(f"包含 {delimiter_count} Delimiters")
-        
         return errors
 
     def get_total_line(self) -> Line:

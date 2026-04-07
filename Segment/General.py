@@ -47,9 +47,9 @@ class WealthBlock:
     def validate(self) -> List[str]:
         errors = []
         if not self.get_primary_line("初始财富"):
-            errors.append("缺失 初始财富 行")
+            errors.append(f"缺失 initial_line")
         if not self.get_primary_line("当前财富"):
-            errors.append("缺失 当前财富 行")
+            errors.append(f"缺失 current_line")
         return errors
 
 
@@ -72,7 +72,7 @@ class ExtraBlock:
     def validate(self) -> List[str]:
         errors = []
         if not self.unit_lines:
-            errors.append("缺失 Unit 行")
+            errors.append(f"缺失 unit_lines")
         return errors
 
 
@@ -135,9 +135,9 @@ class ComboBlock:
     def validate(self) -> List[str]:
         errors = []
         if not self.primary_lines:
-            errors.append("缺失主分配行")
+            errors.append(f"缺失 primary_lines")
         elif len(self.primary_lines) < 2:
-            errors.append(f"包含 {len(self.primary_lines)} 主分配行")
+            errors.append(f"包含 {len(self.primary_lines)} primary_lines")
         return errors
 
 
@@ -246,22 +246,22 @@ class GeneralSection:
     def validate(self) -> List[str]:
         errors = []
         if not self.title_line:
-            errors.extend([f"缺失标题行"])
+            errors.append(f"缺失 title_line")
 
         if not self.wealth_block:
-            errors.extend([f"缺失 wealth_block"])
+            errors.append(f"缺失 wealth_block")
         else:
             wealth_errors = self.wealth_block.validate()
             errors.extend([f"wealth_block: {err}" for err in wealth_errors])
 
         if not self.extra_block:
-            errors.extend([f"缺失 extra_block"])
+            errors.append(f"缺失 extra_block")
         else:
             extra_errors = self.extra_block.validate()
             errors.extend([f"extra_block: {err}" for err in extra_errors])
 
         if not self.combo_block:
-            errors.extend([f"缺失 combo_block"])
+            errors.append(f"缺失 combo_block")
         else:
             combo_errors = self.combo_block.validate()
             errors.extend([f"combo_block: {err}" for err in combo_errors])

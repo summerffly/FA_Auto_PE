@@ -18,7 +18,7 @@ from .Base import BaseLedger, _BaseLedgerParser
 # ======================================== #
 
 @dataclass
-class MonthLedger(BaseLedger):    
+class MonthLedger(BaseLedger):
     @classmethod
     def _create_parser(cls, lines: List[Line]) -> "_MonthLedgerParser":
         return _MonthLedgerParser(lines, ledger=MonthLedger())
@@ -40,21 +40,21 @@ class MonthLedger(BaseLedger):
     def validate(self) -> List[str]:
         errors = []
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.extend([f"存在重复Segments"])
+            errors.append(f"存在重复Segments")
 
         for seg in self.segments:
             if not isinstance(seg, MonthSection):
-                errors.extend([f"segment '{seg.name}' 类型错误: {type(seg).__name__}"])
+                errors.append(f"segment '{seg.name}' 类型错误: {type(seg).__name__}")
                 continue
             else:
                 seg_errors = seg.validate()
                 errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
         
         if not self.tail:
-            errors.extend([f"缺失 tail"])
+            errors.append(f"缺失 tail")
         else:
             if not isinstance(self.tail, TailBlock):
-                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+                errors.append(f"tail 类型错误: {type(self.tail).__name__}")
             else:
                 tail_errors = self.tail.validate()
                 errors.extend([f"tail: {err}" for err in tail_errors])
@@ -75,7 +75,7 @@ class MonthLedger(BaseLedger):
 # ======================================== #
 
 @dataclass
-class _MonthLedgerParser(_BaseLedgerParser):    
+class _MonthLedgerParser(_BaseLedgerParser):
     def __post_init__(self):
         if self.ledger is None:
             self.ledger = MonthLedger()

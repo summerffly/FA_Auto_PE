@@ -19,7 +19,7 @@ from .Base import BaseLedger, _BaseLedgerParser
 # ======================================== #
 
 @dataclass
-class CollectLedger(BaseLedger):    
+class CollectLedger(BaseLedger):
     @classmethod
     def _create_parser(cls, lines: List[Line]) -> "_CollectLedgerParser":
         return _CollectLedgerParser(lines, ledger=CollectLedger())
@@ -47,30 +47,30 @@ class CollectLedger(BaseLedger):
     def validate(self) -> List[str]:
         errors = []
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.extend([f"存在重复Segments"])
+            errors.append(f"存在重复Segments")
 
         for seg in self.segments:
             if not isinstance(seg, CollectSection):
-                errors.extend([f"segment '{seg.name}' 类型错误: {type(seg).__name__}"])
+                errors.append(f"segment '{seg.name}' 类型错误: {type(seg).__name__}")
                 continue
             else:
                 seg_errors = seg.validate()
                 errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
 
         if not self.total_seg:
-            errors.extend([f"缺失 total_seg"])
+            errors.append(f"缺失 total_seg")
         else:
             if not isinstance(self.total_seg, TotalMiniSection):
-                errors.extend([f"total_seg 类型错误: {type(self.total_seg).__name__}"])
+                errors.append(f"total_seg 类型错误: {type(self.total_seg).__name__}")
             else:
                 total_errors = self.total_seg.validate()
                 errors.extend([f"total_seg: {err}" for err in total_errors])
         
         if not self.tail:
-            errors.extend([f"缺失 tail"])
+            errors.append(f"缺失 tail")
         else:
             if not isinstance(self.tail, TailBlock):
-                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+                errors.append(f"tail 类型错误: {type(self.tail).__name__}")
             else:
                 tail_errors = self.tail.validate()
                 errors.extend([f"tail: {err}" for err in tail_errors])
@@ -92,7 +92,7 @@ class CollectLedger(BaseLedger):
 # ======================================== #
 
 @dataclass
-class _CollectLedgerParser(_BaseLedgerParser):    
+class _CollectLedgerParser(_BaseLedgerParser):
     def __post_init__(self):
         if self.ledger is None:
             self.ledger = CollectLedger()

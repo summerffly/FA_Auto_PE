@@ -18,7 +18,7 @@ from .Base import BaseLedger, _BaseLedgerParser
 # ======================================== #
 
 @dataclass
-class LifeLedger(BaseLedger):    
+class LifeLedger(BaseLedger):
     @classmethod
     def _create_parser(cls, lines: List[Line]) -> "_LifeLedgerParser":
         return _LifeLedgerParser(lines, ledger=LifeLedger())
@@ -59,21 +59,21 @@ class LifeLedger(BaseLedger):
     def validate(self) -> List[str]:
         errors = []
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.extend([f"存在重复Segments"])
+            errors.append(f"存在重复Segments")
 
         for seg in self.segments:
             if not isinstance(seg, LifeSection):
-                errors.extend([f"segment '{seg.name}' 类型错误: {type(seg).__name__}"])
+                errors.append(f"segment '{seg.name}' 类型错误: {type(seg).__name__}")
                 continue
             else:
                 seg_errors = seg.validate()
                 errors.extend([f"segment '{seg.name}': {err}" for err in seg_errors])
         
         if not self.tail:
-            errors.extend([f"缺失 tail"])
+            errors.append(f"缺失 tail")
         else:
             if not isinstance(self.tail, TailBlock):
-                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+                errors.append(f"tail 类型错误: {type(self.tail).__name__}")
             else:
                 tail_errors = self.tail.validate()
                 errors.extend([f"tail: {err}" for err in tail_errors])
@@ -94,7 +94,7 @@ class LifeLedger(BaseLedger):
 # ======================================== #
 
 @dataclass
-class _LifeLedgerParser(_BaseLedgerParser):    
+class _LifeLedgerParser(_BaseLedgerParser):
     def __post_init__(self):
         if self.ledger is None:
             self.ledger = LifeLedger()
@@ -113,7 +113,7 @@ class _LifeLedgerParser(_BaseLedgerParser):
                 print(f"[警告] Life账目中创建了非LifeSection: {section.__class__.__name__}")
             self.ledger.segments.append(section)
         else:
-            print(f"[警告] Life账目中出现其他分段类型: {self.curr_head.type}")
+            print(f"[警告] Life账目中出现其他分段类型: {self.curr_head.type} {self.curr_head.raw}")
             pass
         
         # 重置状态

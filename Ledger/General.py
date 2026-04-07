@@ -97,39 +97,39 @@ class GeneralLedger(LedgerMixin):
         errors = []
 
         if len(self.seg_names) != len(set(self.seg_names)):
-            errors.extend([f"存在重复Segments"])
+            errors.append(f"存在重复Segments")
 
         if not self.life_segment:
-            errors.extend([f"缺失 life_segment"])
+            errors.append(f"缺失 life_segment")
         else:
             if not isinstance(self.life_segment, LifeMiniSection):
-                errors.extend([f"life_segment 类型错误: {type(self.life_segment).__name__}"])
+                errors.append(f"life_segment 类型错误: {type(self.life_segment).__name__}")
             else:
                 seg_errors = self.life_segment.validate()
                 errors.extend([f"life_segment '{self.life_segment.name}': {err}" for err in seg_errors])
 
         for seg in self.collect_segments:
             if not isinstance(seg, CollectMiniSection):
-                errors.extend([f"collect_segment '{seg.name}' 类型错误: {type(seg).__name__}"])
+                errors.append(f"collect_segment '{seg.name}' 类型错误: {type(seg).__name__}")
                 continue
             else:
                 seg_errors = seg.validate()
                 errors.extend([f"collect_segment '{seg.name}': {err}" for err in seg_errors])
 
         if not self.general:
-            errors.extend([f"缺失 general"])
+            errors.append(f"缺失 general")
         else:
             if not isinstance(self.general, GeneralSection):
-                errors.extend([f"general 类型错误: {type(self.general).__name__}"])
+                errors.append(f"general 类型错误: {type(self.general).__name__}")
             else:
                 general_errors = self.general.validate()
                 errors.extend([f"general: {err}" for err in general_errors])
 
         if not self.tail:
-            errors.extend([f"缺失 tail"])
+            errors.append(f"缺失 tail")
         else:
             if not isinstance(self.tail, TailBlock):
-                errors.extend([f"tail 类型错误: {type(self.tail).__name__}"])
+                errors.append(f"tail 类型错误: {type(self.tail).__name__}")
             else:
                 tail_errors = self.tail.validate()
                 errors.extend([f"tail: {err}" for err in tail_errors])

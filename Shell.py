@@ -1,7 +1,7 @@
 # File:        Shell.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-07
 # Description: 交互式命令行
 
 import cmd
@@ -105,40 +105,35 @@ class Shell(cmd.Cmd):
         self._run(run)
 
     def do_rebuild(self, arg):
-        """rebuild [<month|life|collect|gen>]"""
+        """rebuild <gen|life|month|collect>"""
         def run():
             parts = self._parse(arg)
-            self._require(parts, 0, 1, "rebuild [<month|life|collect|gen>]")
+            self._require(parts, 1, 1, "rebuild <gen|life|month|collect>")
 
-            if not parts:
-                self._engine.rebuild_all()
-            elif parts[0] == "month":
-                self._engine.rebuild_month()
+            if parts[0] == "gen":
+                self._engine.rebuild_gen()
             elif parts[0] == "life":
                 self._engine.rebuild_life()
+            elif parts[0] == "month":
+                self._engine.rebuild_month()
             elif parts[0] == "collect":
                 self._engine.rebuild_collect()
-            elif parts[0] == "gen":
-                self._engine.rebuild_gen()
             else:
                 raise ValueError(f"未知账目: {parts[0]}")
         self._run(run)
 
     def do_sync(self, arg):
-        """sync [<month|life|collect>]"""
+        """sync <life|month|collect>"""
         def run():
             parts = self._parse(arg)
-            self._require(parts, 0, 1, "sync [<month|life|collect>]")
+            self._require(parts, 1, 1, "sync <life|month|collect>")
 
-            if not parts:
-                self._engine.sync_all()
-                print(f"  所有账目已同步")
+            if parts[0] == "life":
+                self._engine.sync_life()
+                print(f"  Life 已同步")
             elif parts[0] == "month":
                 self._engine.sync_month()
                 print(f"  Month 已同步")
-            elif parts[0] == "life":
-                self._engine.sync_life()
-                print(f"  Life 已同步")
             elif parts[0] == "collect":
                 self._engine.sync_collect()
                 print(f"  Collect 已同步")
@@ -184,9 +179,7 @@ class Shell(cmd.Cmd):
             parts = self._parse(arg)
             self._require(parts, 1, 1, "dump <账目别名>")
 
-            if parts[0] == "fa":
-                self._hub.get_gen_entry().ledger.dump()
-            elif parts[0] in self._hub.get_alias_list():
+            if parts[0] in self._hub.get_alias_list():
                 self._hub.get_entry(parts[0]).ledger.dump()
             else:
                 raise ValueError(f"无效账目别名: {parts[0]}")
@@ -198,9 +191,7 @@ class Shell(cmd.Cmd):
             parts = self._parse(arg)
             self._require(parts, 1, 1, "repr <账目别名>")
 
-            if parts[0] == "fa":
-                print(self._hub.get_gen_entry().ledger.__repr__())
-            elif parts[0] in self._hub.get_alias_list():
+            if parts[0] in self._hub.get_alias_list():
                 print(self._hub.get_entry(parts[0]).ledger.__repr__())
             else:
                 raise ValueError(f"无效账目别名: {parts[0]}")

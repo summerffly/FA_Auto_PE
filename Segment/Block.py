@@ -43,7 +43,7 @@ class TailBlock(BaseBlock):
         timestamp_lines = [ln for ln in self.block_lines if ln.type == LineType.TIMESTAMP]
         eof_lines = [ln for ln in self.block_lines if ln.type == LineType.EOF]
         if len(timestamp_lines) != 1:
-            errors.append(f"包含 {len(timestamp_lines)} Timestamp")
+            errors.append(f"包含 {len(timestamp_lines)} timestamp")
         if len(eof_lines) != 1:
             errors.append(f"包含 {len(eof_lines)} EOF")
         return errors

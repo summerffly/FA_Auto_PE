@@ -175,15 +175,15 @@ class LifeSection(BaseSection):
     def validate(self) -> List[str]:
         errors = []
         if len(self.sum_lines) != 3:
-            errors.append(f"包含 {len(self.sum_lines)} SumLines")
+            errors.append(f"包含 {len(self.sum_lines)} sum_lines")
         if not self.get_sum_line("收入"):
-            errors.append("缺失 income 行")
+            errors.append(f"缺失 income_line")
         if not self.get_sum_line("支出"):
-            errors.append("缺失 expense 行")
+            errors.append(f"缺失 expense_line")
         if not self.get_sum_line("结余"):
-            errors.append("缺失 balance 行")
+            errors.append(f"缺失 balance_line")
         if not self.body_lines:
-            errors.append(f"缺失 BodyLines")
+            errors.append(f"缺失 body_lines")
         return errors
 
     def __repr__(self):
@@ -222,9 +222,9 @@ class SingleAggrSection(BaseSection, ABC):
     def validate(self) -> List[str]:
         errors = []
         if len(self.sum_lines) != 1:
-            errors.append(f"包含 {len(self.sum_lines)} SumLines")
+            errors.append(f"包含 {len(self.sum_lines)} sum_lines")
         if not self.body_lines:
-            errors.append(f"缺失 BodyLines")
+            errors.append(f"缺失 body_lines")
         return errors
 
 

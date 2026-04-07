@@ -64,7 +64,7 @@ class LifeMiniSection(BaseMiniSection):
         errors = []
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.MONTH_SUM)
         if sum_line_count != 3:
-            errors.append(f"包含 {sum_line_count} SumLines")
+            errors.append(f"包含 {sum_line_count} sum_lines")
         return errors
     
     def get_sum_line(self, key: str) -> Optional[Line]:
@@ -114,14 +114,14 @@ class CollectMiniSection(BaseMiniSection):
         errors = []
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.SECTION_SUM)
         if sum_line_count != 1:
-            errors.append(f"包含 {sum_line_count} SumLines")
+            errors.append(f"包含 {sum_line_count} sum_lines")
         return errors
 
     def get_sum_line(self) -> Line:
         for ln in self.sum_lines:
             if ln.type == LineType.SECTION_SUM:
                 return ln
-        raise ValueError("无法找到 Collect 分段的 SumLine")
+        raise ValueError("无法找到 Collect 分段的 sum_line")
 
     @property
     def sum(self) -> int:
@@ -145,16 +145,16 @@ class TotalMiniSection(BaseMiniSection):
         sum_line_count = sum(1 for ln in self.sum_lines if ln.type == LineType.TOTAL)
         delimiter_count = sum(1 for ln in self.sum_lines if ln.type == LineType.DELIMITER)
         if sum_line_count != 1:
-            errors.append(f"包含 {sum_line_count} SumLines")
+            errors.append(f"包含 {sum_line_count} sum_lines")
         if delimiter_count != 2:
-            errors.append(f"包含 {delimiter_count} Delimiters")
+            errors.append(f"包含 {delimiter_count} delimiters")
         return errors
 
     def get_total_line(self) -> Line:
         for ln in self.sum_lines:
             if ln.type == LineType.TOTAL:
                 return ln
-        raise ValueError("无法找到 Total 分段的 SumLine")
+        raise ValueError("无法找到 Total 分段的 total_line")
 
     @property
     def total(self) -> int:

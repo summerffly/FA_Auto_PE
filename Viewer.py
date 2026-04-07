@@ -1,7 +1,7 @@
 # File:        Viewer.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-04-04
-# LastEdit:    2026-04-06
+# LastEdit:    2026-04-07
 # Description: FA系统查看器
 
 from colorama import Fore, Style
@@ -30,11 +30,7 @@ class Viewer:
         table.add_column("Ledger", style="cyan")
         table.add_column("Timestamp", style="green")
 
-        gen_entry = self._hub.get_gen_entry()
-        timestamp = gen_entry.ledger.tail.timestamp
-        table.add_row(gen_entry.filepath, str(timestamp) if timestamp else "NONE")
-
-        for entry in self._hub.get_entries():
+        for entry in self._hub.get_all_entries():
             timestamp = entry.ledger.tail.timestamp
             table.add_row(entry.filepath, str(timestamp) if timestamp else "NONE")
 
@@ -85,7 +81,7 @@ class Viewer:
         table.add_column("Segment", style="green")
         table.add_column("Sum", justify="right")
 
-        for entry in self._hub.get_entries():
+        for entry in self._hub.get_non_gen_entries():
             ledger = entry.ledger
             name = entry.name
             for seg in ledger.segments:

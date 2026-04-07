@@ -1,7 +1,7 @@
 # File:        Engine.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-03
+# LastEdit:    2026-04-07
 # Description: FA系统核心引擎
 
 from typing import List
@@ -32,18 +32,6 @@ class Engine:
 
     # ----- 校验 -------------------- #
 
-    def validate_gen_ledger(self, table: Table = None):
-        gen_ledger = self._hub.get_gen_entry().ledger
-        filepath = self._hub.get_gen_entry().filepath
-        ledger_type = type(gen_ledger).__name__
-        errors = gen_ledger.validate()
-
-        status = "✅" if not errors else "❌"
-        table.add_row(filepath, ledger_type, status)
-
-        for error in errors:
-            print(f"{filepath} {Fore.RED}[!]{Style.RESET_ALL} {error}")
-
     def validate_ledger(self, entry: LedgerEntry, table: Table = None):
         ledger = entry.ledger
         filepath = entry.filepath
@@ -62,8 +50,7 @@ class Engine:
         table.add_column("Type", style="green")
         table.add_column("Valid", justify="right")
 
-        self.validate_gen_ledger(table)
-        for entry in self._hub.get_entries():
+        for entry in self._hub.get_all_entries():
             self.validate_ledger(entry, table)
 
         self.console.print(table)
@@ -83,7 +70,7 @@ class Engine:
                     Text("─" * 16, style="dim"),
                     Text("─" * 6, style="dim"))
 
-    def check_ledger(self, entry: LedgerEntry, table: Table = None):
+    def check_non_gen_ledger(self, entry: LedgerEntry, table: Table = None):
         ledger = entry.ledger
         name = entry.name
         
@@ -109,49 +96,35 @@ class Engine:
         table.add_column("Check", justify="right")
 
         self.check_gen_ledger(table)
-        for entry in self._hub.get_entries():
-            self.check_ledger(entry, table)
+        for entry in self._hub.get_non_gen_entries():
+            self.check_non_gen_ledger(entry, table)
         
         self.console.print(table)
 
     # ----- 重新计算 -------------------- #
-
-    def rebuild_month(self):
-        for entry in self._hub.get_month_entries():
-            entry.ledger.rebuild()
-            print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {entry.name:<10} 完成ReBuild")
     
-    def rebuild_life(self):
-        life_entry = self._hub.get_life_entry()
-        life_entry.ledger.rebuild()
-        print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {life_entry.name:<10} 完成ReBuild")
-
-    def rebuild_collect(self):
-        for entry in self._hub.get_collect_entries():
-            entry.ledger.rebuild()
-            print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {entry.name:<10} 完成ReBuild")
-
     def rebuild_gen(self):
         gen_entry = self._hub.get_gen_entry()
         gen_ledger = gen_entry.ledger
         gen_ledger.rebuild()
         print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {gen_entry.name:<10} 完成ReBuild")
 
-    def rebuild_all(self):
-        self.rebuild_month()
-        self.rebuild_life()
-        self.rebuild_collect()
-        self.rebuild_gen()
+    def rebuild_life(self):
+        life_entry = self._hub.get_life_entry()
+        life_entry.ledger.rebuild()
+        print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {life_entry.name:<10} 完成ReBuild")
+
+    def rebuild_month(self):
+        for entry in self._hub.get_month_entries():
+            entry.ledger.rebuild()
+            print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {entry.name:<10} 完成ReBuild")
+
+    def rebuild_collect(self):
+        for entry in self._hub.get_collect_entries():
+            entry.ledger.rebuild()
+            print(f"  {Fore.GREEN}[✓]{Style.RESET_ALL} {entry.name:<10} 完成ReBuild")
 
     # ----- 同步 -------------------- #
-
-    def sync_month(self):
-        life_ledger = self._hub.get_life_entry().ledger
-
-        for entry in self._hub.get_month_entries():
-            for month in self._get_month_list():
-                month_sum = entry.ledger.get_month_sum(f"{month}")
-                life_ledger.mod_month_line(f"{month}", entry.name, month_sum)
 
     def sync_life(self):
         gen_ledger  = self._hub.get_gen_entry().ledger
@@ -163,16 +136,19 @@ class Engine:
             life_ledger.balance_sum
         )
 
+    def sync_month(self):
+        life_ledger = self._hub.get_life_entry().ledger
+
+        for entry in self._hub.get_month_entries():
+            for month in self._get_month_list():
+                month_sum = entry.ledger.get_month_sum(f"{month}")
+                life_ledger.mod_month_line(f"{month}", entry.name, month_sum)
+
     def sync_collect(self):
         gen_ledger = self._hub.get_gen_entry().ledger
 
         for entry in self._hub.get_collect_entries():
             gen_ledger.mod_collect_segment(entry.name, entry.ledger.total)
-
-    def sync_all(self):
-        self.sync_month()
-        self.sync_life()
-        self.sync_collect()
 
     # ----- 更新 -------------------- #
 

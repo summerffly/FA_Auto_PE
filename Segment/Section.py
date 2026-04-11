@@ -1,7 +1,7 @@
 # File:        Segment/Section.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-22
-# LastEdit:    2026-04-06
+# LastEdit:    2026-04-11
 # Description: Section分段模块
 
 from abc import ABC, abstractmethod
@@ -19,8 +19,6 @@ from Line import LineRegex as RE
 
 @dataclass
 class BaseSection(ABC):
-
-    # ----- 属性 -------------------- #
 
     title_line: Line
     sum_lines: List[Line] = field(init=False, default_factory=list)
@@ -68,17 +66,6 @@ class BaseSection(ABC):
     def blank_lines(self) -> List[Line]:
         return [ln for ln in self.body_lines if ln.type == LineType.BLANK]
     
-    # ----- 序列化 -------------------- #
-
-    def to_lines(self) -> List[Line]:
-        raw_lines: List[Line] = []
-        raw_lines.extend([self.title_line])
-        raw_lines.extend(self.sum_lines)
-        raw_lines.extend(self.body_lines)
-        return raw_lines
-
-    # ----- 抽象方法 -------------------- #
-
     @abstractmethod
     def is_sum_line(self, line: Line) -> bool:
         raise NotImplementedError
@@ -88,6 +75,17 @@ class BaseSection(ABC):
     def sum(self) -> int:
         raise NotImplementedError
 
+    # ----- 序列化 -------------------- #
+
+    def to_lines(self) -> List[Line]:
+        all_lines: List[Line] = []
+        all_lines.extend([self.title_line])
+        all_lines.extend(self.sum_lines)
+        all_lines.extend(self.body_lines)
+        return all_lines
+
+    # ----- 操作 -------------------- #
+
     @abstractmethod
     def rebuild(self):
         raise NotImplementedError
@@ -95,6 +93,8 @@ class BaseSection(ABC):
     @abstractmethod
     def checksum(self) -> bool:
         raise NotImplementedError
+    
+    # ----- 验证 -------------------- #
 
     @abstractmethod
     def validate(self) -> List[str]:
@@ -116,21 +116,15 @@ class LifeSection(BaseSection):
         return self.balance
 
     def rebuild(self):
-        expected_income = self.income
-        expected_expense = sum(ln.value for ln in self.unit_lines)
-        expected_balance = expected_income + expected_expense
+        target_income = self.income
+        target_expense = sum(ln.value for ln in self.unit_lines)
+        target_balance = target_income + target_expense
 
         expense_line = self.get_sum_line("支出")
-        if not expense_line:
-            raise ValueError(f"LifeSection '{self.name}' 缺失支出行")
-        else:
-            expense_line.value = expected_expense
+        expense_line.value = target_expense
 
         balance_line = self.get_sum_line("结余")
-        if not balance_line:
-            raise ValueError(f"LifeSection '{self.name}' 缺失结余行")
-        else:
-            balance_line.value = expected_balance
+        balance_line.value = target_balance
 
     def checksum(self) -> bool:
         expected_income = self.income

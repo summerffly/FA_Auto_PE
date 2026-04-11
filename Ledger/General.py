@@ -1,7 +1,7 @@
 # File:        Ledger/Sum.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-24
-# LastEdit:    2026-04-06
+# LastEdit:    2026-04-10
 # Description: 汇总账目对象
 
 from dataclasses import dataclass, field
@@ -23,11 +23,12 @@ from .Mixin import LedgerMixin
 
 @dataclass
 class GeneralLedger(LedgerMixin):
+
     header: List[Line] = field(default_factory=list)
     life_segment: Optional[LifeMiniSection] = None
     collect_segments: List[CollectMiniSection] = field(default_factory=list)
     general: Optional[GeneralSection] = None
-    tail: Optional[TailBlock] = None
+    tail: TailBlock = field(default_factory=TailBlock)
 
     # ----- 解析方法 -------------------- #
 
@@ -36,7 +37,7 @@ class GeneralLedger(LedgerMixin):
         parser = _GeneralLedgerParser(lines)
         return parser.parse()
 
-    # ----- 数据访问方法 -------------------- #
+    # ----- 数据访问 -------------------- #
 
     @property
     def seg_names(self) -> List[str]:
@@ -51,26 +52,38 @@ class GeneralLedger(LedgerMixin):
                 return seg
         raise ValueError(f"无法找到 Collect 分段 '{name}'")
 
-    def mod_life_segment(self, income_value: int, expense_value: int, balance_value: int):
+    def sync_life_segment(self, target_income: int, target_expense: int, target_balance: int):
         seg = self.get_life_segment()
-        seg.set_income(income_value)
-        seg.set_expense(expense_value)
-        seg.set_balance(balance_value)
+        seg.set_income(target_income)
+        seg.set_expense(target_expense)
+        seg.set_balance(target_balance)
 
-    def mod_collect_segment(self, name: str, new_value: int):
+    def sync_collect_segment(self, name: str, target_sum: int):
         seg = self.get_collect_segment(name)
-        seg.set_sum(new_value)
+        seg.set_sum(target_sum)
+
+    def checksync_life_segment(self, expected_income: int, expected_expense: int, expected_balance: int) -> bool:
+        seg = self.get_life_segment()
+        return (
+            seg.income == expected_income and 
+            seg.expense == expected_expense and 
+            seg.balance == expected_balance
+        )
+
+    def checksync_collect_segment(self, name: str, expected_sum: int) -> bool:
+        seg = self.get_collect_segment(name)
+        return seg.sum == expected_sum
 
     def get_segments_sum(self) -> int:
         life_sum = self.life_segment.balance if self.life_segment else 0
         collect_sum = sum(seg.sum for seg in self.collect_segments)
         return life_sum + collect_sum
+    
+    # ----- 操作 -------------------- #
 
     def rebuild(self):
         segments_sum = self.get_segments_sum()
         self.general.rebuild(segments_sum)
-
-    # ----- 验证 -------------------- #
 
     def checksum(self) -> bool:
         segments_sum = self.get_segments_sum()
@@ -91,7 +104,7 @@ class GeneralLedger(LedgerMixin):
             all_lines.extend(self.tail.to_lines())
         return all_lines
 
-    # ----- Debug -------------------- #
+    # ----- 验证 -------------------- #
 
     def validate(self) -> List[str]:
         errors = []
@@ -136,14 +149,16 @@ class GeneralLedger(LedgerMixin):
 
         return errors
     
+    # ----- Debug -------------------- #
+    
     def dump(self):
         print("=== GeneralLedger Dump ===")
         print(f"class        : {self.__class__.__name__}")
         print(f"header       : {len(self.header)}")
-        print(f"life_seg     : {self.life_segment.name if self.life_segment else 'None'}")
+        print(f"life_seg     : {self.life_segment.name}")
         print(f"collect_segs : {len(self.collect_segments)}")
-        print(f"general      : {self.general.name if self.general else 'None'}")
-        print(f"tail         : {len(self.tail.to_lines()) if self.tail else 0}")
+        print(f"general      : {self.general.name}")
+        print(f"tail         : {len(self.tail.to_lines())}")
         print()
 
         if self.life_segment:
@@ -166,14 +181,17 @@ class GeneralLedger(LedgerMixin):
             print(f"   combo  : {len(self.general.combo_block.lines)}")
             print()
 
+        print(f"[Tail] {len(self.tail.to_lines())} lines")
+        print()
+
     def __repr__(self):
         return (
             f"GeneralLedger("
             f"header={len(self.header)}, "
-            f"life_segment={self.life_segment.name if self.life_segment else 'None'}, "
+            f"life_segment={self.life_segment.name}, "
             f"collect_segments={len(self.collect_segments)}, "
-            f"general={self.general.name if self.general else 'None'}, "
-            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
+            f"general={self.general.name}, "
+            f"tail={len(self.tail.to_lines())})"
         )
 
 
@@ -209,6 +227,7 @@ class _GeneralLedgerParser:
             self._process_normal_line(line)
             self.index += 1
 
+        self._finish_current_segment()
         return self.ledger
 
     def _process_normal_line(self, line: Line):

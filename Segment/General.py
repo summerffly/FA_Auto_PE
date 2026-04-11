@@ -38,8 +38,7 @@ class WealthBlock:
 
     def set_current_wealth(self, value: int):
         ln = self.get_primary_line("当前财富")
-        if ln:
-            ln.value = value
+        ln.value = value
 
     def checksum(self, segments_total: int) -> bool:
         return self.current_wealth == self.initial_wealth + segments_total
@@ -126,9 +125,9 @@ class ComboBlock:
             ln.value = self.disposable_wealth - self.get_secondary_sum()
 
     def checksum(self, current_wealth: int, extra_sum: int) -> bool:
-        expected_value = current_wealth + extra_sum
+        expected_disposable_wealth = current_wealth + extra_sum
         return (
-            self.disposable_wealth == expected_value and
+            self.disposable_wealth == expected_disposable_wealth and
             self.disposable_wealth == self.get_combo_sum()
         )
     
@@ -284,26 +283,25 @@ class GeneralSection:
 
     def checksum(self, segments_total: int) -> bool:
         """ 验证所有计算值 """
-        if self.wealth_block:
-            if not self.wealth_block.checksum(segments_total):
-                return False
-        if self.combo_block:
-            if not self.combo_block.checksum(self.current_wealth, self.extra_sum):
-                return False
-        return True
+        if not self.wealth_block.checksum(segments_total):
+            return False
+        elif not self.combo_block.checksum(self.current_wealth, self.extra_sum):
+            return False
+        else:
+            return True
 
     # ----- 序列化 -------------------- #
 
     def to_lines(self) -> List[Line]:
-        raw_lines: List[Line] = []
-        raw_lines.extend([self.title_line])
+        all_lines: List[Line] = []
+        all_lines.extend([self.title_line])
         if self.wealth_block:
-            raw_lines.extend(self.wealth_block.lines)
+            all_lines.extend(self.wealth_block.lines)
         if self.extra_block:
-            raw_lines.extend(self.extra_block.lines)
+            all_lines.extend(self.extra_block.lines)
         if self.combo_block:
-            raw_lines.extend(self.combo_block.lines)
-        return raw_lines
+            all_lines.extend(self.combo_block.lines)
+        return all_lines
 
 
 # ======================================== #

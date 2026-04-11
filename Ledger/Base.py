@@ -1,18 +1,16 @@
 # File:        Ledger/Base.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-03-30
-# LastEdit:    2026-04-06
+# LastEdit:    2026-04-10
 # Description: Ledger抽象基类
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional
-from colorama import Fore, Style
+from typing import List, Optional, Type
 
 from Line import Line, LineType
 from Segment import (
     BaseSection, 
-    TotalMiniSection, 
     TailBlock, make_tail_block
 )
 from .Mixin import LedgerMixin
@@ -24,10 +22,10 @@ from .Mixin import LedgerMixin
 
 @dataclass
 class BaseLedger(LedgerMixin, ABC):
+
     header: List[Line] = field(default_factory=list)
     segments: List[BaseSection] = field(default_factory=list)
-    total_seg: Optional[TotalMiniSection] = None
-    tail: Optional[TailBlock] = None
+    tail: TailBlock = field(default_factory=TailBlock)
 
     # ----- 解析方法 -------------------- #
 
@@ -41,7 +39,11 @@ class BaseLedger(LedgerMixin, ABC):
     def _create_parser(cls, lines: List[Line]) -> "_LedgerParser":
         raise NotImplementedError
 
-    # ----- 数据访问方法 -------------------- #
+    @abstractmethod
+    def _get_segment_type(self) -> Type[BaseSection]:
+        raise NotImplementedError
+
+    # ----- 数据访问 -------------------- #
 
     @property
     def seg_names(self) -> List[str]:
@@ -49,9 +51,9 @@ class BaseLedger(LedgerMixin, ABC):
 
     # ----- 操作 -------------------- #
 
-    @abstractmethod
     def rebuild(self):
-        raise NotImplementedError
+        for seg in self.segments:
+            seg.rebuild()
 
     def checksum(self) -> bool:
         return all(seg.checksum() for seg in self.segments)
@@ -63,17 +65,35 @@ class BaseLedger(LedgerMixin, ABC):
         all_lines.extend(self.header)
         for seg in self.segments:
             all_lines.extend(seg.to_lines())
-        if self.total_seg:
-            all_lines.extend(self.total_seg.to_lines())
-        if self.tail:
-            all_lines.extend(self.tail.to_lines())
+        all_lines.extend(self.tail.to_lines())
         return all_lines
 
     # ----- 验证 -------------------- #
-
-    @abstractmethod
+    
     def validate(self) -> List[str]:
-        raise NotImplementedError
+        errors = []
+        
+        # 检查重复
+        if len(self.seg_names) != len(set(self.seg_names)):
+            errors.append("存在重复Segments")
+
+        # 检查 segments
+        seg_type = self._get_segment_type()
+        for seg in self.segments:
+            if not isinstance(seg, seg_type):
+                errors.append(f"segment '{seg.name}' 类型错误: {type(seg).__name__}")
+                continue
+            seg_errors = seg.validate()
+            errors.extend(f"segment '{seg.name}': {err}" for err in seg_errors)
+        
+        # 检查 tail
+        if not isinstance(self.tail, TailBlock):
+            errors.append(f"tail 类型错误: {type(self.tail).__name__}")
+        else:
+            tail_errors = self.tail.validate()
+            errors.extend(f"tail: {err}" for err in tail_errors)
+        
+        return errors
     
     # ----- Debug -------------------- #
 
@@ -82,8 +102,7 @@ class BaseLedger(LedgerMixin, ABC):
         print(f"class     : {self.__class__.__name__}")
         print(f"header    : {len(self.header)}")
         print(f"segments  : {len(self.segments)}")
-        print(f"total_seg : {self.total_seg.name if self.total_seg else 'None'}")
-        print(f"tail      : {len(self.tail.to_lines()) if self.tail else 0}")
+        print(f"tail      : {len(self.tail.to_lines())}")
         print()
 
         for i, seg in enumerate(self.segments, 1):
@@ -95,19 +114,15 @@ class BaseLedger(LedgerMixin, ABC):
             print(f"   blanks : {len(seg.blank_lines)}")
             print()
 
-        if self.total_seg:
-            print(f"[Total] {self.total_seg.name}")
-            print(f"   class : {self.total_seg.__class__.__name__}")
-            print(f"   lines : {len(self.total_seg.sum_lines)}")
-            print()
+        print(f"[Tail] {len(self.tail.to_lines())} lines")
+        print()
 
     def __repr__(self):
         return (
             f"{self.__class__.__name__}("
             f"header={len(self.header)}, "
             f"segments={len(self.segments)}, "
-            f"total_seg={self.total_seg.name if self.total_seg else 'None'}, "
-            f"tail={len(self.tail.to_lines()) if self.tail else 0})"
+            f"tail={len(self.tail.to_lines())})"
         )
 
 
@@ -129,7 +144,7 @@ class _BaseLedgerParser(ABC):
             line = self.lines[self.index]
             
             # 处理新分段
-            if line.type in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.COLLECT_TITLE, LineType.TOTAL_TITLE):
+            if line.type in (LineType.LIFE_TITLE, LineType.MONTH_TITLE, LineType.COLLECT_TITLE):
                 self._finish_current_segment()
                 self._start_new_segment(line)
                 continue
@@ -143,7 +158,8 @@ class _BaseLedgerParser(ABC):
             # 处理普通行
             self._process_normal_line(line)
             self.index += 1
-        
+
+        self._finish_current_segment()
         return self.ledger
     
     def _process_normal_line(self, line: Line):
@@ -173,3 +189,5 @@ class _BaseLedgerParser(ABC):
         
         if tail_lines:
             self.ledger.tail = make_tail_block(tail_lines)
+    
+    # ----- END -------------------- #

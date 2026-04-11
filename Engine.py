@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from Ledger import CollectLedger
 from LedgerHub import LedgerHub, LedgerEntry
 
 
@@ -79,7 +80,7 @@ class Engine:
             status = "✅" if ok else "❌"
             table.add_row(name, seg.name, status)
         
-        if ledger.total_seg:
+        if isinstance(ledger, CollectLedger):
             ok = ledger.checksum()
             status = "✅" if ok else "❌"
             table.add_row(name, "Total", status)
@@ -99,6 +100,61 @@ class Engine:
         for entry in self._hub.get_non_gen_entries():
             self.check_non_gen_ledger(entry, table)
         
+        self.console.print(table)
+
+    # ----- 校验同步 -------------------- #
+
+    def checksync_life(self, table: Table = None):
+        gen_ledger = self._hub.get_gen_entry().ledger
+        life_ledger = self._hub.get_life_entry().ledger
+        life_name = self._hub.get_life_entry().name
+
+        ok = gen_ledger.checksync_life_segment(
+            life_ledger.get_income_sum(),
+            life_ledger.get_expense_sum(),
+            life_ledger.get_balance_sum()
+        )
+        status = "✅" if ok else "❌"
+        table.add_row(life_name, "life.SUM", status)
+
+        table.add_row(
+                    Text("─" * 10, style="dim"),
+                    Text("─" * 16, style="dim"),
+                    Text("─" * 6, style="dim"))
+
+    def checksync_month(self, table: Table = None):
+        life_ledger = self._hub.get_life_entry().ledger
+
+        for entry in self._hub.get_month_entries():
+            for month in self._get_month_list():
+                month_sum = entry.ledger.get_month_sum(f"{month}")
+                ok = life_ledger.checksync_month_line(f"{month}", entry.name, month_sum)
+                status = "✅" if ok else "❌"
+                table.add_row(entry.name, f"{month}", status)
+
+            table.add_row(
+                        Text("─" * 10, style="dim"),
+                        Text("─" * 16, style="dim"),
+                        Text("─" * 6, style="dim"))
+
+    def checksync_collect(self, table: Table = None):
+        gen_ledger = self._hub.get_gen_entry().ledger
+
+        for entry in self._hub.get_collect_entries():
+            ok = gen_ledger.checksync_collect_segment(entry.name, entry.ledger.total)
+            status = "✅" if ok else "❌"
+            table.add_row(entry.name, "collect.SUM", status)
+
+    def checksync_all(self):
+        table = Table(show_header=True, header_style="magenta")
+        table.add_column("Ledger", style="cyan")
+        table.add_column("Segment", style="green")
+        table.add_column("Check", justify="right")
+
+        self.checksync_life(table)
+        self.checksync_month(table)
+        self.checksync_collect(table)
+
         self.console.print(table)
 
     # ----- 重新计算 -------------------- #
@@ -127,13 +183,13 @@ class Engine:
     # ----- 同步 -------------------- #
 
     def sync_life(self):
-        gen_ledger  = self._hub.get_gen_entry().ledger
+        gen_ledger = self._hub.get_gen_entry().ledger
         life_ledger = self._hub.get_life_entry().ledger
 
-        gen_ledger.mod_life_segment(
-            life_ledger.income_sum,
-            life_ledger.expense_sum,
-            life_ledger.balance_sum
+        gen_ledger.sync_life_segment(
+            life_ledger.get_income_sum(),
+            life_ledger.get_expense_sum(),
+            life_ledger.get_balance_sum()
         )
 
     def sync_month(self):
@@ -142,13 +198,13 @@ class Engine:
         for entry in self._hub.get_month_entries():
             for month in self._get_month_list():
                 month_sum = entry.ledger.get_month_sum(f"{month}")
-                life_ledger.mod_month_line(f"{month}", entry.name, month_sum)
+                life_ledger.sync_month_line(f"{month}", entry.name, month_sum)
 
     def sync_collect(self):
         gen_ledger = self._hub.get_gen_entry().ledger
 
         for entry in self._hub.get_collect_entries():
-            gen_ledger.mod_collect_segment(entry.name, entry.ledger.total)
+            gen_ledger.sync_collect_segment(entry.name, entry.ledger.total)
 
     # ----- 更新 -------------------- #
 

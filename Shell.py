@@ -104,6 +104,12 @@ class Shell(cmd.Cmd):
             self._engine.check_all()
         self._run(run)
 
+    def do_checksync(self, arg):
+        """checksync"""
+        def run():
+            self._engine.checksync_all()
+        self._run(run)
+
     def do_rebuild(self, arg):
         """rebuild <gen|life|month|collect>"""
         def run():

@@ -1,7 +1,7 @@
 # File:        Viewer.py
 # Author:      summer@SummerStudio
 # CreateDate:  2026-04-04
-# LastEdit:    2026-04-07
+# LastEdit:    2026-04-11
 # Description: FA系统查看器
 
 from colorama import Fore, Style
@@ -26,7 +26,7 @@ class Viewer:
     # ----- 查看 -------------------- #
 
     def view_ts(self):
-        table = Table(show_header=True, header_style="magenta")
+        table = Table(show_header=True, header_style="dark_cyan")
         table.add_column("Ledger", style="cyan")
         table.add_column("Timestamp", style="green")
 
@@ -37,7 +37,7 @@ class Viewer:
         self.console.print(table)
 
     def view_gen_ledger(self):
-        table = Table(show_header=True, header_style="magenta")
+        table = Table(show_header=True, header_style="dark_cyan")
         table.add_column("Line", style="green")
         table.add_column("Value", justify="right")
 
@@ -76,7 +76,7 @@ class Viewer:
         self.console.print(table)
 
     def view_all_sum(self):
-        table = Table(show_header=True, header_style="magenta")
+        table = Table(show_header=True, header_style="dark_cyan")
         table.add_column("Ledger", style="cyan")
         table.add_column("Segment", style="green")
         table.add_column("Sum", justify="right")
